@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/BathyFlowDEM" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
