@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import Qgis
+from qgis.core import Qgis, QgsProject
 from qgis.utils import iface
 import processing
 
@@ -172,6 +172,32 @@ class BathyFlowDEM:
 
 
 
+    def points_on_centerline(self, centerline):
+        """Creates points along the given centerline each m. Need to implement how to let the user choose the distance of the points."""
+        # From doc: processing.run("algorithm_id", {'parameter_dictionary})
+
+        print("Insite the points along line algorith.")
+        # Create the parameters dictionnary for the points along line alorithm
+        PAL_params = {
+            'INPUT': centerline,
+            'DISTANCE': 1,
+            'START_OFFSET': 0,
+            'END_OFFSET': 0,
+            'OUTPUT': 'TEMPORARY_OUTPUT'
+        }
+
+        # Run the algorithm
+        layer_PAL = processing.run("native:pointsalonglines", PAL_params)
+
+        # Add to map for vizualisation
+        QgsProject.instance().addMapLayer(layer_PAL['OUTPUT'])
+
+
+
+
+
+
+
 
 
     def run(self):
@@ -217,7 +243,9 @@ class BathyFlowDEM:
                     output_path = user_output_dir_path + "\\bathyflowdem_output.shp"
                 else:
                     output_path = user_output_dir_path + "\\" + user_output_layer_name + ".shp"
-                    
+            
+            # Create layer with points along centerline
+            self.points_on_centerline(centerline_layer)
 
             """Tests and errors"""
             # self.check_data_inputs(point_layer, centerline_layer, boundary_layer)
@@ -225,13 +253,13 @@ class BathyFlowDEM:
 
             if show_output_checked == True:
                 if not user_output_dir_path and not user_output_layer_name: # no path so we can load tmp layer
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':'C:/Users/melin/Desktop/rough_centerline.shp',
+                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
                                                                                   'OUTPUT':'memory:testing_name', 
                                                                                   'NAME':'bathyflowDEM_output'})
                     print(new_layer)
                 else: # if there is a dir path, output path was defined earlier
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':'C:/Users/melin/Desktop/rough_centerline.shp',
+                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
                                                                                   'OUTPUT': output_path})
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
@@ -240,7 +268,7 @@ class BathyFlowDEM:
                 if not user_output_dir_path: # wether user added filename or not
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Choose output directory or to load temporary layer.", level=Qgis.Warning)
                 else: # if there is a dir path, output path was defined earlier
-                    new_layer = processing.run("native:centroids", {'INPUT':'C:/Users/melin/Desktop/rough_centerline.shp',
+                    new_layer = processing.run("native:centroids", {'INPUT':boundary_layer,
                                                                     'ALL_PARTS':False,
                                                                     'OUTPUT': output_path})
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
