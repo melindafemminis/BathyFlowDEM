@@ -8,8 +8,7 @@ Create a QGIS plugin that uses anisotropic interpolation methods and flow-orient
 
 ### Main steps
 
-- First minimal version: January 7th 2024
-- Final working version: April 30th 2024
+
 
 ## Development
 
