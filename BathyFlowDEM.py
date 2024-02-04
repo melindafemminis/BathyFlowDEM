@@ -262,39 +262,65 @@ class BathyFlowDEM:
     def run(self):
         """Run method that performs all the real work"""
 
+
+
+
+
+        ########################################################################
+        ##
+        ## Set the dialog window, restrictions and updates
+        ##
+        ########################################################################
+
         # Restrict the type of layer that can be selected in the combo boxes
         self.dlg.cbInputBoundary.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.dlg.cbInputPoints.setFilters(QgsMapLayerProxyModel.PointLayer)
         self.dlg.cbInputCenterline.setFilters(QgsMapLayerProxyModel.LineLayer)
 
         # PLaceholders for output layer name
-        # TODO: add placeholder for QgsFileWidget
         self.dlg.leOutputName.setPlaceholderText("bathyflowDEM_output")
 
         # show the dialog
         self.dlg.show()
+
         # Run the dialog event loop
         result = self.dlg.exec_()
 
-        # Populate attribute field with selected point layer
+        # Populate attribute field with selected point layer - and update is changed
         self.onCbInputPointsWidget_layerChanged()
         
     
+
+
+
+
+
+
         # See if OK was pressed
         if result:
 
-            """Get user inputs"""
+
+
+            ########################################################################
+            ##
+            ## Get selected user's values INPUTS and OUTPUT choice/destination
+            ##
+            ########################################################################
+            
+            # Get user input layers
             point_layer = self.dlg.cbInputPoints.currentLayer()
             centerline_layer = self.dlg.cbInputCenterline.currentLayer()
             boundary_layer = self.dlg.cbInputBoundary.currentLayer()
+
+            # Other parameters
             cell_size = self.dlg.sbCellSize.value()
             show_output_checked = self.dlg.cbOpenOutputFile.isChecked()
 
-            """Get user outputs"""
-            user_output_dir_path = self.dlg.saveDirWidget.filePath() # might or might not be a path
-            user_output_layer_name = self.dlg.leOutputName.displayText() # might or might not be a name
+            # Get user output path 
+            user_output_dir_path = self.dlg.saveDirWidget.filePath() # might be empty
+            user_output_layer_name = self.dlg.leOutputName.displayText() # might be empty
 
-            """Define user output path"""
+            # Define user output path. If no directory selected, layer name is ditched. Otherwise build full path.
             if not user_output_dir_path:
                 pass
             else:
@@ -309,22 +335,42 @@ class BathyFlowDEM:
 
 
 
+
+            ########################################################################
+            ##
+            ## Create temporary layers using native Qgis algorithms
+            ##
+            ########################################################################
+
             # Get the shortest distance between each bathy point and the centerline
             short_dist_layer = self.shortest_distance(centerline=centerline_layer, points=point_layer)
             print("Done with shortest distance.")
-            print(short_dist_layer)
 
             # Extend the result to it intersecti with the centerline
             extend_end_layer = self.extend_end_lines(lines=short_dist_layer)
             print("Done with extended end.")
-            print(extend_end_layer)
 
             # Create a new temporary layer with points where the centerline intersecti with the lines
             intersection_layer = self.intersect_centerline(short_lines=extend_end_layer, centerline= centerline_layer)
             print("Done with intersection with centerline.")
-            print(intersection_layer)
 
 
+
+
+
+
+
+            """There is now 3 important layers: points, with starting xy points, short_dist_layer, with the n value for each point
+            and intersection_layer with new points where the shortest lines intersect with the centerlin.
+            .
+            First thing is to still add the sign in front of each N to know if the |n| value we have is + or -.
+            .
+            Next goal is to create a new point layer with point_ID, X, Y, S and N values.
+            .
+            """
+
+            for field in short_dist_layer.fields():
+                print(field.name(), field.typeName())
 
 
 
@@ -335,27 +381,41 @@ class BathyFlowDEM:
             """Tests and errors"""
             # self.check_data_inputs(point_layer, centerline_layer, boundary_layer)
 
+
             if show_output_checked == True:
-                if not user_output_dir_path and not user_output_layer_name: # no path so we can load tmp layer
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
+
+                # No output dir selected, no layer name but load layer checked
+                if not user_output_dir_path and not user_output_layer_name: 
+                    print("Load layer to map checked, no dir and not output name.")
+
+                    """ new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
-                                                                                  'OUTPUT':'memory:testing_name', 
-                                                                                  'NAME':'bathyflowDEM_output'})
-                    print(new_layer)
-                else: # if there is a dir path, output path was defined earlier
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
+                                                                                  'OUTPUT':'TEMPORARY_OUTPUT', 
+                                                                                  'NAME':'bathyflowDEM_output'})"""
+                    
+                # if there is a dir path, output path was defined earlier
+                else: 
+                    print("Load layer to map checked, and dir path selected we save layer in dir + load in project.")
+                    """ new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
-                                                                                  'OUTPUT': output_path})
+                                                                                  'OUTPUT': output_path}) """
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
-                    print(new_layer)
+
             else:
+
+                # if no output dir selected
                 if not user_output_dir_path: # wether user added filename or not
+                    print("Error, there is no saving path and no load to project. Choose one method.")
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Choose output directory or to load temporary layer.", level=Qgis.Warning)
+
+
                 else: # if there is a dir path, output path was defined earlier
-                    new_layer = processing.run("native:centroids", {'INPUT':boundary_layer,
+                    print("Box to laod layer not checked, dir path selected.")
+                    """ new_layer = processing.run("native:centroids", {'INPUT':boundary_layer,
                                                                     'ALL_PARTS':False,
-                                                                    'OUTPUT': output_path})
+                                                                    'OUTPUT': output_path}) """
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
       
             
+
 
