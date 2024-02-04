@@ -172,10 +172,14 @@ class BathyFlowDEM:
 
 
 
+
+
+
+
+
     def shortest_distance(self, centerline, points):
         """Creates lines that are the shortest between each bathy points and the centerline"""
-        # From doc: processing.run("algorithm_id", {'parameter_dictionary})
-        print("Insite the shortest distance function.")
+        print("Inside the shortest_distance().")
 
         # Create the parameters dictionnary for the shortest distance algorithm
         short_dist_params = {
@@ -188,12 +192,65 @@ class BathyFlowDEM:
         }
 
         # Run the algorithm
-        short_dist_layer = processing.run("native:shortestline", short_dist_params)
-
+        short_dist_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
         # Add to map for vizualisation
-        QgsProject.instance().addMapLayer(short_dist_layer['OUTPUT']) 
+        QgsProject.instance().addMapLayer(short_dist_layer) 
 
         return short_dist_layer
+
+
+
+
+
+    def extend_end_lines(self, lines):
+        """Extend the end of the lines by 1m to allow intesections"""
+        print("Inside the extend_end_lines().")
+
+        # Create the parameters dictionnary for the shortest distance algorithm
+        extend_lines_params = {
+            'INPUT': lines,
+            'START_DISTANCE': 0,
+            'END_DISTANCE': 1,
+            'OUTPUT': 'TEMPORARY_OUTPUT'
+        }
+
+        # Run the algorithm
+        extend_lines_layer = processing.run("native:extendlines", extend_lines_params)['OUTPUT']
+        # Add to map for vizualisation
+        QgsProject.instance().addMapLayer(extend_lines_layer) 
+
+        return extend_lines_layer
+
+
+
+
+
+    def intersect_centerline(self, centerline, short_lines):
+        """Creates points where the shortest lines intersect with the centerline"""
+        print("Inside the intersect_centerline().")
+
+        # Create the parameters dictionnary for the lines intersections algorithm
+        intersect_params = {
+            'INPUT': short_lines, 
+            'INTERSECT': centerline,
+            'INPUT_FIELDS': None, 
+            'INTESECT_FIELDS': None, 
+            'OUTPUT': 'TEMPORARY_OUTPUT'
+        }
+
+        print("Passed dict.")
+        # Run the algorithm
+        intersections_layer = processing.run("native:lineintersections", intersect_params)['OUTPUT']
+        print("Passed processing.")
+        print(intersections_layer)
+        # Add to map for vizualisation
+        QgsProject.instance().addMapLayer(intersections_layer) 
+
+        return intersections_layer
+
+
+
+
 
 
 
@@ -249,9 +306,26 @@ class BathyFlowDEM:
 
 
 
+
+
+
             # Get the shortest distance between each bathy point and the centerline
             short_dist_layer = self.shortest_distance(centerline=centerline_layer, points=point_layer)
-            print(short_dist_layer['OUTPUT'])
+            print("Done with shortest distance.")
+            print(short_dist_layer)
+
+            # Extend the result to it intersecti with the centerline
+            extend_end_layer = self.extend_end_lines(lines=short_dist_layer)
+            print("Done with extended end.")
+            print(extend_end_layer)
+
+            # Create a new temporary layer with points where the centerline intersecti with the lines
+            intersection_layer = self.intersect_centerline(short_lines=extend_end_layer, centerline= centerline_layer)
+            print("Done with intersection with centerline.")
+            print(intersection_layer)
+
+
+
 
 
 
