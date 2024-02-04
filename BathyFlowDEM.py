@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import Qgis
+from qgis.core import Qgis, QgsProject
 from qgis.utils import iface
 import processing
 
@@ -172,6 +172,34 @@ class BathyFlowDEM:
 
 
 
+    def shortest_distance(self, centerline, points):
+        """Creates lines that are the shortest between each bathy points and the centerline"""
+        # From doc: processing.run("algorithm_id", {'parameter_dictionary})
+        print("Insite the shortest distance function.")
+
+        # Create the parameters dictionnary for the shortest distance algorithm
+        short_dist_params = {
+            'SOURCE': points,
+            'DESTINATION': centerline,
+            'METHOD': 0,
+            'NEIGHBORS': 1,
+            'END_OFFSET': 0,
+            'OUTPUT': 'TEMPORARY_OUTPUT'
+        }
+
+        # Run the algorithm
+        short_dist_layer = processing.run("native:shortestline", short_dist_params)
+
+        # Add to map for vizualisation
+        QgsProject.instance().addMapLayer(short_dist_layer['OUTPUT']) 
+
+        return short_dist_layer
+
+
+
+
+
+
 
 
     def run(self):
@@ -217,21 +245,31 @@ class BathyFlowDEM:
                     output_path = user_output_dir_path + "\\bathyflowdem_output.shp"
                 else:
                     output_path = user_output_dir_path + "\\" + user_output_layer_name + ".shp"
-                    
+            
+
+
+
+            # Get the shortest distance between each bathy point and the centerline
+            short_dist_layer = self.shortest_distance(centerline=centerline_layer, points=point_layer)
+            print(short_dist_layer['OUTPUT'])
+
+
+
+
+
 
             """Tests and errors"""
             # self.check_data_inputs(point_layer, centerline_layer, boundary_layer)
 
-
             if show_output_checked == True:
                 if not user_output_dir_path and not user_output_layer_name: # no path so we can load tmp layer
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':'C:/Users/melin/Desktop/rough_centerline.shp',
+                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
                                                                                   'OUTPUT':'memory:testing_name', 
                                                                                   'NAME':'bathyflowDEM_output'})
                     print(new_layer)
                 else: # if there is a dir path, output path was defined earlier
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':'C:/Users/melin/Desktop/rough_centerline.shp',
+                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
                                                                                   'OUTPUT': output_path})
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
@@ -240,7 +278,7 @@ class BathyFlowDEM:
                 if not user_output_dir_path: # wether user added filename or not
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Choose output directory or to load temporary layer.", level=Qgis.Warning)
                 else: # if there is a dir path, output path was defined earlier
-                    new_layer = processing.run("native:centroids", {'INPUT':'C:/Users/melin/Desktop/rough_centerline.shp',
+                    new_layer = processing.run("native:centroids", {'INPUT':boundary_layer,
                                                                     'ALL_PARTS':False,
                                                                     'OUTPUT': output_path})
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
