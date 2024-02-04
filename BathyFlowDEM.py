@@ -172,26 +172,28 @@ class BathyFlowDEM:
 
 
 
-    def points_on_centerline(self, centerline):
-        """Creates points along the given centerline each m. Need to implement how to let the user choose the distance of the points."""
+    def shortest_distance(self, centerline, points):
+        """Creates lines that are the shortest between each bathy points and the centerline"""
         # From doc: processing.run("algorithm_id", {'parameter_dictionary})
+        print("Insite the shortest distance function.")
 
-        print("Insite the points along line algorith.")
-        # Create the parameters dictionnary for the points along line alorithm
-        PAL_params = {
-            'INPUT': centerline,
-            'DISTANCE': 1,
-            'START_OFFSET': 0,
+        # Create the parameters dictionnary for the shortest distance algorithm
+        short_dist_params = {
+            'SOURCE': points,
+            'DESTINATION': centerline,
+            'METHOD': 0,
+            'NEIGHBORS': 1,
             'END_OFFSET': 0,
             'OUTPUT': 'TEMPORARY_OUTPUT'
         }
 
         # Run the algorithm
-        layer_PAL = processing.run("native:pointsalonglines", PAL_params)
+        short_dist_layer = processing.run("native:shortestline", short_dist_params)
 
         # Add to map for vizualisation
-        QgsProject.instance().addMapLayer(layer_PAL['OUTPUT'])
+        QgsProject.instance().addMapLayer(short_dist_layer['OUTPUT']) 
 
+        return short_dist_layer
 
 
 
@@ -244,12 +246,20 @@ class BathyFlowDEM:
                 else:
                     output_path = user_output_dir_path + "\\" + user_output_layer_name + ".shp"
             
-            # Create layer with points along centerline
-            self.points_on_centerline(centerline_layer)
+
+
+
+            # Get the shortest distance between each bathy point and the centerline
+            short_dist_layer = self.shortest_distance(centerline=centerline_layer, points=point_layer)
+            print(short_dist_layer['OUTPUT'])
+
+
+
+
+
 
             """Tests and errors"""
             # self.check_data_inputs(point_layer, centerline_layer, boundary_layer)
-
 
             if show_output_checked == True:
                 if not user_output_dir_path and not user_output_layer_name: # no path so we can load tmp layer
