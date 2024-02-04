@@ -194,7 +194,7 @@ class BathyFlowDEM:
         # Run the algorithm
         short_dist_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
         # Add to map for vizualisation
-        QgsProject.instance().addMapLayer(short_dist_layer) 
+        # QgsProject.instance().addMapLayer(short_dist_layer) 
 
         return short_dist_layer
 
@@ -217,7 +217,7 @@ class BathyFlowDEM:
         # Run the algorithm
         extend_lines_layer = processing.run("native:extendlines", extend_lines_params)['OUTPUT']
         # Add to map for vizualisation
-        QgsProject.instance().addMapLayer(extend_lines_layer) 
+        # QgsProject.instance().addMapLayer(extend_lines_layer) 
 
         return extend_lines_layer
 
@@ -238,13 +238,10 @@ class BathyFlowDEM:
             'OUTPUT': 'TEMPORARY_OUTPUT'
         }
 
-        print("Passed dict.")
         # Run the algorithm
         intersections_layer = processing.run("native:lineintersections", intersect_params)['OUTPUT']
-        print("Passed processing.")
-        print(intersections_layer)
         # Add to map for vizualisation
-        QgsProject.instance().addMapLayer(intersections_layer) 
+        # QgsProject.instance().addMapLayer(intersections_layer) 
 
         return intersections_layer
 
@@ -318,7 +315,9 @@ class BathyFlowDEM:
 
             # Get user output path 
             user_output_dir_path = self.dlg.saveDirWidget.filePath() # might be empty
+            print("User dir " + str(user_output_dir_path))
             user_output_layer_name = self.dlg.leOutputName.displayText() # might be empty
+            print("User layer name " + str(user_output_layer_name))
 
             # Define user output path. If no directory selected, layer name is ditched. Otherwise build full path.
             if not user_output_dir_path:
@@ -394,18 +393,21 @@ class BathyFlowDEM:
                                                                                   'NAME':'bathyflowDEM_output'})"""
                     
                 # if there is a dir path, output path was defined earlier
-                else: 
-                    print("Load layer to map checked, and dir path selected we save layer in dir + load in project.")
+                elif not user_output_dir_path:
+                    print("Load layer to map checked, no dir path selected so only temp.")
                     """ new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
                                                                                   'OUTPUT': output_path}) """
+
+                else:
+                    print("Load layer to map checked, dir selected so load in project + export with output path.")
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
 
             else:
 
                 # if no output dir selected
                 if not user_output_dir_path: # wether user added filename or not
-                    print("Error, there is no saving path and no load to project. Choose one method.")
+                    print("ERROR, there is no saving path and no load to project. Choose one method.")
                     self.iface.messageBar().pushMessage("BathyFlowDEM", "Choose output directory or to load temporary layer.", level=Qgis.Warning)
 
 
