@@ -21,12 +21,13 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import Qgis, QgsProject
+from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField
 from qgis.utils import iface
+from qgis.core.additions.edit import edit
 import processing
 
 from osgeo import gdal
@@ -193,6 +194,7 @@ class BathyFlowDEM:
 
         # Run the algorithm
         short_dist_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
+
         # Add to map for vizualisation
         # QgsProject.instance().addMapLayer(short_dist_layer) 
 
@@ -240,6 +242,7 @@ class BathyFlowDEM:
 
         # Run the algorithm
         intersections_layer = processing.run("native:lineintersections", intersect_params)['OUTPUT']
+
         # Add to map for vizualisation
         # QgsProject.instance().addMapLayer(intersections_layer) 
 
@@ -292,7 +295,6 @@ class BathyFlowDEM:
 
 
 
-
         # See if OK was pressed
         if result:
 
@@ -335,6 +337,16 @@ class BathyFlowDEM:
 
 
 
+
+
+
+
+
+            
+ 
+            
+
+
             ########################################################################
             ##
             ## Create temporary layers using native Qgis algorithms
@@ -354,22 +366,56 @@ class BathyFlowDEM:
             print("Done with intersection with centerline.")
 
 
+            print(short_dist_layer.getFeature(4).attribute(2))
 
 
 
 
 
-            """There is now 3 important layers: points, with starting xy points, short_dist_layer, with the n value for each point
-            and intersection_layer with new points where the shortest lines intersect with the centerlin.
-            .
-            First thing is to still add the sign in front of each N to know if the |n| value we have is + or -.
-            .
-            Next goal is to create a new point layer with point_ID, X, Y, S and N values.
-            .
-            """
+            
+            ########################################################################
+            ##
+            ## Create new points layer and add X, Y, S, N fields + populate
+            ##
+            ########################################################################
+                    
 
-            for field in short_dist_layer.fields():
-                print(field.name(), field.typeName())
+            # Clone input shp point layer
+            point_layer_xy_sn = point_layer.clone()
+            point_layer_xy_sn.setName('points_xy_and_sn')
+            
+            pl_caps = point_layer_xy_sn.dataProvider().capabilities()
+
+            # Create list of new fields
+            pl_new_fields = [
+                QgsField("X", QVariant.Double),
+                QgsField("Y", QVariant.Double),
+                QgsField("S", QVariant.Double),
+                QgsField("N", QVariant.Double)
+            ]
+
+            # Add fields to layer and update layer
+            if pl_caps & QgsVectorDataProvider.AddAttributes:
+                 point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
+            point_layer_xy_sn.updateFields()
+
+            # Populate fields
+            with edit(point_layer_xy_sn):
+                for f in point_layer_xy_sn.getFeatures():
+
+                    # Get x and y coords in proj crs
+                    geom = f.geometry()
+                    x = geom.asPoint().x()
+                    y = geom.asPoint().y()
+
+                    n = short_dist_layer.getFeature(f.id()).attribute(2)
+
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 1, x)
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 2, y)
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, 30)
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)
+
+            QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
 
 
