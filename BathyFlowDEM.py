@@ -212,53 +212,6 @@ class BathyFlowDEM:
 
 
 
-    def extend_end_lines(self, lines):
-        """Extend the end of the lines by 1m to allow intesections"""
-        print("Inside the extend_end_lines().")
-
-        # Create the parameters dictionnary for the extend lines algorithm
-        extend_lines_params = {
-            'INPUT': lines,
-            'START_DISTANCE': 0,
-            'END_DISTANCE': 1,
-            'OUTPUT': 'TEMPORARY_OUTPUT'
-        }
-
-        # Run the algorithm
-        extend_lines_layer = processing.run("native:extendlines", extend_lines_params)['OUTPUT']
-
-        # Add to map for vizualisation
-        # QgsProject.instance().addMapLayer(extend_lines_layer) 
-
-        return extend_lines_layer
-
-
-
-
-
-    def intersect_centerline(self, centerline, short_lines):
-        """Creates points where the shortest lines intersect with the centerline"""
-        print("Inside the intersect_centerline().")
-
-        # Create the parameters dictionnary for the lines intersections algorithm
-        intersect_params = {
-            'INPUT': short_lines, 
-            'INTERSECT': centerline,
-            'INPUT_FIELDS': None, 
-            'INTESECT_FIELDS': None, 
-            'OUTPUT': 'TEMPORARY_OUTPUT'
-        }
-
-        # Run the algorithm
-        intersections_layer = processing.run("native:lineintersections", intersect_params)['OUTPUT']
-
-        # Add to map for vizualisation
-        # QgsProject.instance().addMapLayer(intersections_layer) 
-
-        return intersections_layer
-
-
-
 
 
 
@@ -276,11 +229,11 @@ class BathyFlowDEM:
     
 
     def calculate_distances_along_line(self, points, centerline):
+        """ Function that returns a dictionnary with, for each point, the side of the line it is located in "side" and the 
+        distance along the center line in "distance". """
 
         # Initialize a dictionary to store distances along the line for each point
-        side_dict = {}
-        segment_dict = {}
-        distance_dict = {}
+        sn_coordinates_dict = {}
 
         line_feature = next(centerline.getFeatures())
         line_geom = line_feature.geometry()
@@ -293,16 +246,15 @@ class BathyFlowDEM:
 
             if nearest_segment:
                 side = nearest_segment[3]
-                segment = nearest_segment[2]
 
-                distance = line_geom.lineLocatePoint(point_geom)
-                print(distance)
+                distance_along_line = line_geom.lineLocatePoint(point_geom)
 
-                side_dict[point_feature.id()] = side
-                segment_dict[point_feature.id()] = segment
-                distance_dict[point_feature.id()] = distance
+                sn_coordinates_dict[point_feature.id()] = {
+                    'side': side,
+                    'distance': distance_along_line
+                }
 
-        return side_dict, segment_dict, distance_dict
+        return sn_coordinates_dict
 
 
 
@@ -410,13 +362,6 @@ class BathyFlowDEM:
             # features_dict = {f.id(): QgsJsonUtils.exportAttributes(f) for f in short_dist_layer.getFeatures()}
             print("Done with shortest distance.")
 
-            # Extend the result to it intersecti with the centerline
-            extend_end_layer = self.extend_end_lines(lines=short_dist_layer)
-            print("Done with extended end.")
-
-            # Create a new temporary layer with points where the centerline intersecti with the lines
-            intersection_layer = self.intersect_centerline(short_lines=extend_end_layer, centerline= centerline_layer)
-            print("Done with intersection with centerline.")
 
 
 
@@ -444,9 +389,6 @@ class BathyFlowDEM:
             pl_new_fields = [
                 QgsField("S", QVariant.Double),
                 QgsField("N", QVariant.Double),
-                QgsField("pos_neg", QVariant.Int),
-                QgsField("segment", QVariant.Int),
-                QgsField("dist", QVariant.Double)
             ]
 
             # Add fields to layer and update layer
@@ -454,38 +396,26 @@ class BathyFlowDEM:
                  point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
             point_layer_xy_sn.updateFields()
 
-            dicts = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
+            sn_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
 
             # Populate fields
             with edit(point_layer_xy_sn):
+
                 for f in point_layer_xy_sn.getFeatures():
 
-                    """ # Get x and y coords in proj crs
-                    geom = f.geometry()
-                    point = geom.vertexAt(0) # QgsPoint
-                    x = point.x()
-                    y = point.y() """
-
-                    # Get retrieve n, from the shortest_distance algorithm
+                    # Retrieve n, from the shortest_distance algorithm
                     # setFilterFid() needs row number, not id so add 1
                     row = f['id'] + 1
                     iterator = short_dist_layer.getFeatures(QgsFeatureRequest().setFilterFid(row))
                     feature = next(iterator)
                     n = feature['distance']
                     
+                    if sn_dictionnary[f.id()]['side'] == -1:
+                        n *= -1
 
-                    """ print("New layer x is: " + str(x))
-                    print("New layer y is: " + str(y))
-                    print("New layer n is: " + str(n))
-                    print("New layer s is: still unknown.") """
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, sn_dictionnary[f.id()]['distance'])
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)
 
-                    # point_layer_xy_sn.changeAttributeValue(f.id(), 1, x)
-                    # point_layer_xy_sn.changeAttributeValue(f.id(), 2, y)
-                    # point_layer_xy_sn.changeAttributeValue(f.id(), 3, 30)
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n) 
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, dicts[0][f.id()])
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 6, dicts[1][f.id()])
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 7, dicts[2][f.id()])
 
             # Calculate distance along line 
             
