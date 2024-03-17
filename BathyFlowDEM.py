@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField
+from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsGeometry, QgsPointXY, QgsFeatureRequest, QgsJsonUtils
 from qgis.utils import iface
 from qgis.core.additions.edit import edit
 import processing
@@ -40,6 +40,10 @@ from .BathyFlowDEM_dialog import BathyFlowDEMDialog
 
 import os.path
 from qgis.core import QgsMapLayerProxyModel, QgsFieldProxyModel
+
+
+
+
 
 
 class BathyFlowDEM:
@@ -164,10 +168,14 @@ class BathyFlowDEM:
 
     def onCbInputPointsWidget_layerChanged(self):
         """Slot method called when the seleted layer in cbInputPoints is changed"""
+
         current_point_layer = self.dlg.cbInputPoints.currentLayer()
         self.dlg.cbAttributeFields.setLayer(current_point_layer)
         self.dlg.cbAttributeFields.setFilters(QgsFieldProxyModel.Numeric)
-        print("Point layer changed method")
+        print("Point layer changed method.")
+
+
+
 
 
 
@@ -182,7 +190,7 @@ class BathyFlowDEM:
         """Creates lines that are the shortest between each bathy points and the centerline"""
         print("Inside the shortest_distance().")
 
-        # Create the parameters dictionnary for the shortest distance algorithm
+        # Parameters dictionnary for the shortest distance algorithm
         short_dist_params = {
             'SOURCE': points,
             'DESTINATION': centerline,
@@ -196,7 +204,7 @@ class BathyFlowDEM:
         short_dist_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
 
         # Add to map for vizualisation
-        # QgsProject.instance().addMapLayer(short_dist_layer) 
+        QgsProject.instance().addMapLayer(short_dist_layer) 
 
         return short_dist_layer
 
@@ -208,7 +216,7 @@ class BathyFlowDEM:
         """Extend the end of the lines by 1m to allow intesections"""
         print("Inside the extend_end_lines().")
 
-        # Create the parameters dictionnary for the shortest distance algorithm
+        # Create the parameters dictionnary for the extend lines algorithm
         extend_lines_params = {
             'INPUT': lines,
             'START_DISTANCE': 0,
@@ -218,6 +226,7 @@ class BathyFlowDEM:
 
         # Run the algorithm
         extend_lines_layer = processing.run("native:extendlines", extend_lines_params)['OUTPUT']
+
         # Add to map for vizualisation
         # QgsProject.instance().addMapLayer(extend_lines_layer) 
 
@@ -251,6 +260,38 @@ class BathyFlowDEM:
 
 
 
+
+
+
+
+
+
+
+    ########################################################################
+    ##
+    ## Find the distance along a line
+    ##
+    ########################################################################
+    
+    
+
+    def calculate_distances_along_line(self, points, centerline):
+
+        # Initialize a dictionary to store distances along the line for each point
+        s_distance_dict = {}
+
+        line_feature = next(centerline.getFeatures())
+        line_geom = line_feature.geometry()
+
+        # Iterate over each feature in the line layer
+        for f in points.getFeatures():
+            point_geom = f.geometry()
+            nearest_segment = line_geom.closestSegmentWithContext(point_geom.asPoint())
+            if nearest_segment:
+                distance = line_geom.distanceToSegment(nearest_segment[1])
+                s_distance_dict[f.id()] = distance
+
+        return s_distance_dict
 
 
 
@@ -355,6 +396,7 @@ class BathyFlowDEM:
 
             # Get the shortest distance between each bathy point and the centerline
             short_dist_layer = self.shortest_distance(centerline=centerline_layer, points=point_layer)
+            # features_dict = {f.id(): QgsJsonUtils.exportAttributes(f) for f in short_dist_layer.getFeatures()}
             print("Done with shortest distance.")
 
             # Extend the result to it intersecti with the centerline
@@ -366,7 +408,8 @@ class BathyFlowDEM:
             print("Done with intersection with centerline.")
 
 
-            print(short_dist_layer.getFeature(4).attribute(2))
+
+
 
 
 
@@ -377,19 +420,17 @@ class BathyFlowDEM:
             ##
             ## Create new points layer and add X, Y, S, N fields + populate
             ##
-            ########################################################################
-                    
+            ########################################################################       
 
-            # Clone input shp point layer
+            # Clone input shp point layer: comes with all attributes: id, X and Y
             point_layer_xy_sn = point_layer.clone()
             point_layer_xy_sn.setName('points_xy_and_sn')
             
+            # To enable check of a particular capability 
             pl_caps = point_layer_xy_sn.dataProvider().capabilities()
 
             # Create list of new fields
             pl_new_fields = [
-                QgsField("X", QVariant.Double),
-                QgsField("Y", QVariant.Double),
                 QgsField("S", QVariant.Double),
                 QgsField("N", QVariant.Double)
             ]
@@ -405,16 +446,32 @@ class BathyFlowDEM:
 
                     # Get x and y coords in proj crs
                     geom = f.geometry()
-                    x = geom.asPoint().x()
-                    y = geom.asPoint().y()
+                    point = geom.vertexAt(0) # QgsPoint
+                    x = point.x()
+                    y = point.y()
 
-                    n = short_dist_layer.getFeature(f.id()).attribute(2)
+                    # Get retrieve n, from the shortest_distance algorithm
+                    # setFilterFid() needs row number, not id so add 1
+                    row = f['id'] + 1
+                    iterator = short_dist_layer.getFeatures(QgsFeatureRequest().setFilterFid(row))
+                    feature = next(iterator)
+                    n = feature['distance']
+                    
 
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 1, x)
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 2, y)
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, 30)
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)
+                    print("New layer x is: " + str(x))
+                    print("New layer y is: " + str(y))
+                    print("New layer n is: " + str(n))
+                    print("New layer s is: still unknown.")
 
+                    # point_layer_xy_sn.changeAttributeValue(f.id(), 1, x)
+                    # point_layer_xy_sn.changeAttributeValue(f.id(), 2, y)
+                    # point_layer_xy_sn.changeAttributeValue(f.id(), 3, 30)
+                    # point_layer_xy_sn.changeAttributeValue(f.id(), 4, n) 
+
+            """ # Calculate distance along line 
+            s_distance_dict = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
+            print("In the distance function to find s")
+            print(s_distance_dict) """
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
 
