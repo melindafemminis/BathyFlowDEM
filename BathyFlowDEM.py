@@ -182,7 +182,11 @@ class BathyFlowDEM:
 
 
 
-
+    ########################################################################
+    ##
+    ## Creates a memory layer that 
+    ##
+    ########################################################################
 
 
 
@@ -251,7 +255,7 @@ class BathyFlowDEM:
 
                 sn_coordinates_dict[point_feature.id()] = {
                     'side': side,
-                    'distance': distance_along_line
+                    'distance_along_line': distance_along_line
                 }
 
         return sn_coordinates_dict
@@ -346,27 +350,6 @@ class BathyFlowDEM:
 
 
 
-            
- 
-            
-
-
-            ########################################################################
-            ##
-            ## Create temporary layers using native Qgis algorithms
-            ##
-            ########################################################################
-
-            # Get the shortest distance between each bathy point and the centerline
-            short_dist_layer = self.shortest_distance(centerline=centerline_layer, points=point_layer)
-            # features_dict = {f.id(): QgsJsonUtils.exportAttributes(f) for f in short_dist_layer.getFeatures()}
-            print("Done with shortest distance.")
-
-
-
-
-
-
 
 
 
@@ -374,9 +357,10 @@ class BathyFlowDEM:
             
             ########################################################################
             ##
-            ## Create new points layer and add X, Y, S, N fields + populate
+            ## Create new points layer with X, Y, S and N coordinates
             ##
             ########################################################################       
+
 
             # Clone input shp point layer: comes with all attributes: id, X and Y
             point_layer_xy_sn = point_layer.clone()
@@ -396,30 +380,47 @@ class BathyFlowDEM:
                  point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
             point_layer_xy_sn.updateFields()
 
-            sn_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
 
-            # Populate fields
+
+            # Get the shortest distance from each point to the centerline $
+            short_dist_params = {
+            'SOURCE': point_layer,
+            'DESTINATION': centerline_layer,
+            'METHOD': 0,
+            'NEIGHBORS': 1,
+            'END_OFFSET': 0,
+            'OUTPUT': 'TEMPORARY_OUTPUT'
+            }
+             # Run the algorithm
+            shortest_dist_point_centerline_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
+            sn_infos_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
+
+
+
+
+            # For each point, populate fields
             with edit(point_layer_xy_sn):
 
                 for f in point_layer_xy_sn.getFeatures():
 
-                    # Retrieve n, from the shortest_distance algorithm
+                    # Retrieve n, calculated by the shortest_distance algorithm
                     # setFilterFid() needs row number, not id so add 1
                     row = f['id'] + 1
-                    iterator = short_dist_layer.getFeatures(QgsFeatureRequest().setFilterFid(row))
+                    iterator = shortest_dist_point_centerline_layer.getFeatures(QgsFeatureRequest().setFilterFid(row))
                     feature = next(iterator)
                     n = feature['distance']
                     
-                    if sn_dictionnary[f.id()]['side'] == -1:
+                    # Change the sign to negative according to which side of the centerline the point it located
+                    if sn_infos_dictionnary[f.id()]['side'] == -1:
                         n *= -1
 
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, sn_dictionnary[f.id()]['distance'])
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)
+                    # Add s and n coordinates to attribute
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, sn_infos_dictionnary[f.id()]['distance_along_line'])
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)            
 
 
-            # Calculate distance along line 
-            
 
+            # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
 
