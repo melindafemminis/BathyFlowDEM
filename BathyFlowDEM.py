@@ -278,7 +278,7 @@ class BathyFlowDEM:
     def calculate_distances_along_line(self, points, centerline):
 
         # Initialize a dictionary to store distances along the line for each point
-        s_distance_dict = {}
+        side_dict = {}
 
         line_feature = next(centerline.getFeatures())
         line_geom = line_feature.geometry()
@@ -286,12 +286,15 @@ class BathyFlowDEM:
         # Iterate over each feature in the line layer
         for f in points.getFeatures():
             point_geom = f.geometry()
+            # closestSegmentWithContext() returns a tuple with [point, nearest point on segment, ]
             nearest_segment = line_geom.closestSegmentWithContext(point_geom.asPoint())
-            if nearest_segment:
-                distance = line_geom.distanceToSegment(nearest_segment[1])
-                s_distance_dict[f.id()] = distance
 
-        return s_distance_dict
+            if nearest_segment:
+                side = nearest_segment[3]
+                #distance = line_geom.distanceToSegment(nearest_segment[1])
+                side_dict[f.id()] = side
+
+        return side_dict
 
 
 
@@ -432,7 +435,8 @@ class BathyFlowDEM:
             # Create list of new fields
             pl_new_fields = [
                 QgsField("S", QVariant.Double),
-                QgsField("N", QVariant.Double)
+                QgsField("N", QVariant.Double),
+                QgsField("pos_neg", QVariant.Double)
             ]
 
             # Add fields to layer and update layer
@@ -440,15 +444,18 @@ class BathyFlowDEM:
                  point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
             point_layer_xy_sn.updateFields()
 
+            pos_or_neg = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
+            print(pos_or_neg)
+
             # Populate fields
             with edit(point_layer_xy_sn):
                 for f in point_layer_xy_sn.getFeatures():
 
-                    # Get x and y coords in proj crs
+                    """ # Get x and y coords in proj crs
                     geom = f.geometry()
                     point = geom.vertexAt(0) # QgsPoint
                     x = point.x()
-                    y = point.y()
+                    y = point.y() """
 
                     # Get retrieve n, from the shortest_distance algorithm
                     # setFilterFid() needs row number, not id so add 1
@@ -458,20 +465,20 @@ class BathyFlowDEM:
                     n = feature['distance']
                     
 
-                    print("New layer x is: " + str(x))
+                    """ print("New layer x is: " + str(x))
                     print("New layer y is: " + str(y))
                     print("New layer n is: " + str(n))
-                    print("New layer s is: still unknown.")
+                    print("New layer s is: still unknown.") """
 
                     # point_layer_xy_sn.changeAttributeValue(f.id(), 1, x)
                     # point_layer_xy_sn.changeAttributeValue(f.id(), 2, y)
                     # point_layer_xy_sn.changeAttributeValue(f.id(), 3, 30)
-                    # point_layer_xy_sn.changeAttributeValue(f.id(), 4, n) 
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n) 
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, pos_or_neg[f.id()]) 
 
-            """ # Calculate distance along line 
-            s_distance_dict = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
-            print("In the distance function to find s")
-            print(s_distance_dict) """
+            # Calculate distance along line 
+            
+
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
 
