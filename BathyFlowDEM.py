@@ -204,7 +204,7 @@ class BathyFlowDEM:
         short_dist_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
 
         # Add to map for vizualisation
-        QgsProject.instance().addMapLayer(short_dist_layer) 
+        # QgsProject.instance().addMapLayer(short_dist_layer) 
 
         return short_dist_layer
 
@@ -279,22 +279,30 @@ class BathyFlowDEM:
 
         # Initialize a dictionary to store distances along the line for each point
         side_dict = {}
+        segment_dict = {}
+        distance_dict = {}
 
         line_feature = next(centerline.getFeatures())
         line_geom = line_feature.geometry()
 
-        # Iterate over each feature in the line layer
-        for f in points.getFeatures():
-            point_geom = f.geometry()
+        # Iterate over each feature in the point layer
+        for point_feature in points.getFeatures():
+            point_geom = point_feature.geometry()
             # closestSegmentWithContext() returns a tuple with [point, nearest point on segment, ]
             nearest_segment = line_geom.closestSegmentWithContext(point_geom.asPoint())
 
             if nearest_segment:
                 side = nearest_segment[3]
-                #distance = line_geom.distanceToSegment(nearest_segment[1])
-                side_dict[f.id()] = side
+                segment = nearest_segment[2]
 
-        return side_dict
+                distance = line_geom.lineLocatePoint(point_geom)
+                print(distance)
+
+                side_dict[point_feature.id()] = side
+                segment_dict[point_feature.id()] = segment
+                distance_dict[point_feature.id()] = distance
+
+        return side_dict, segment_dict, distance_dict
 
 
 
@@ -436,7 +444,9 @@ class BathyFlowDEM:
             pl_new_fields = [
                 QgsField("S", QVariant.Double),
                 QgsField("N", QVariant.Double),
-                QgsField("pos_neg", QVariant.Double)
+                QgsField("pos_neg", QVariant.Int),
+                QgsField("segment", QVariant.Int),
+                QgsField("dist", QVariant.Double)
             ]
 
             # Add fields to layer and update layer
@@ -444,8 +454,7 @@ class BathyFlowDEM:
                  point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
             point_layer_xy_sn.updateFields()
 
-            pos_or_neg = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
-            print(pos_or_neg)
+            dicts = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
 
             # Populate fields
             with edit(point_layer_xy_sn):
@@ -474,7 +483,9 @@ class BathyFlowDEM:
                     # point_layer_xy_sn.changeAttributeValue(f.id(), 2, y)
                     # point_layer_xy_sn.changeAttributeValue(f.id(), 3, 30)
                     point_layer_xy_sn.changeAttributeValue(f.id(), 4, n) 
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, pos_or_neg[f.id()]) 
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, dicts[0][f.id()])
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 6, dicts[1][f.id()])
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 7, dicts[2][f.id()])
 
             # Calculate distance along line 
             
