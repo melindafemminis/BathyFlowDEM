@@ -261,11 +261,7 @@ class BathyFlowDEM:
 
             start_point = line_geom.vertexAt(before_vertex_index)
             end_point = line_geom.vertexAt(afterVertex)
-        
-            # Now you have the start and end points of the closest segment
-            # You can use these points for further calculations or analysis
-            print(f"Start Point: {start_point}, End Point: {end_point}")
-
+    
 
             # Calculate flow direction as an angle
             if start_point and end_point:
@@ -277,6 +273,8 @@ class BathyFlowDEM:
                 flow_directions.append(angle_deg)
             else:
                 flow_directions.append(None)
+        
+        print(flow_directions)
         
         return flow_directions
 
@@ -376,7 +374,7 @@ class BathyFlowDEM:
 
 
             flow_direction = self.flowdirections(centerline_layer, point_layer)
-            print(flow_direction)
+            
 
 
 
@@ -394,7 +392,7 @@ class BathyFlowDEM:
             
             ########################################################################
             ##
-            ## Create new points layer with X, Y, S and N coordinates
+            ## Create new points layer with X, Y, S and N coordinates and flow direction
             ##
             ########################################################################       
 
@@ -410,6 +408,7 @@ class BathyFlowDEM:
             pl_new_fields = [
                 QgsField("S", QVariant.Double),
                 QgsField("N", QVariant.Double),
+                QgsField("FlowDir", QVariant.Double),
             ]
 
             # Add fields to layer and update layer
@@ -433,6 +432,7 @@ class BathyFlowDEM:
             sn_infos_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
 
 
+            flow_direction = self.flowdirections(centerline_layer, point_layer)
 
 
             # For each point, populate fields
@@ -451,9 +451,12 @@ class BathyFlowDEM:
                     if sn_infos_dictionnary[f.id()]['side'] == -1:
                         n *= -1
 
+                    FlowDir = flow_direction[f.id()]
+
                     # Add s and n coordinates to attribute
                     point_layer_xy_sn.changeAttributeValue(f.id(), 3, sn_infos_dictionnary[f.id()]['distance_along_line'])
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)            
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)   
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, FlowDir)            
 
 
 
