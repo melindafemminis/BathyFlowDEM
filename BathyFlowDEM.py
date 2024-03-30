@@ -25,10 +25,13 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsGeometry, QgsPointXY, QgsFeatureRequest, QgsJsonUtils
+import math
+
+from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsGeometry, QgsPointXY, QgsFeatureRequest, QgsRasterLayer, QgsRasterFileWriter
 from qgis.utils import iface
 from qgis.core.additions.edit import edit
 import processing
+from qgis.analysis import QgsIDWInterpolator
 
 from osgeo import gdal
 from osgeo.gdalconst import *
@@ -182,39 +185,6 @@ class BathyFlowDEM:
 
 
 
-    ########################################################################
-    ##
-    ## Creates a memory layer that 
-    ##
-    ########################################################################
-
-
-
-    def shortest_distance(self, centerline, points):
-        """Creates lines that are the shortest between each bathy points and the centerline"""
-        print("Inside the shortest_distance().")
-
-        # Parameters dictionnary for the shortest distance algorithm
-        short_dist_params = {
-            'SOURCE': points,
-            'DESTINATION': centerline,
-            'METHOD': 0,
-            'NEIGHBORS': 1,
-            'END_OFFSET': 0,
-            'OUTPUT': 'TEMPORARY_OUTPUT'
-        }
-
-        # Run the algorithm
-        short_dist_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
-
-        # Add to map for vizualisation
-        # QgsProject.instance().addMapLayer(short_dist_layer) 
-
-        return short_dist_layer
-
-
-
-
 
 
 
@@ -246,10 +216,10 @@ class BathyFlowDEM:
         for point_feature in points.getFeatures():
             point_geom = point_feature.geometry()
             # closestSegmentWithContext() returns a tuple with [point, nearest point on segment, ]
-            nearest_segment = line_geom.closestSegmentWithContext(point_geom.asPoint())
+            nearest_segment_results = line_geom.closestSegmentWithContext(point_geom.asPoint())
 
-            if nearest_segment:
-                side = nearest_segment[3]
+            if nearest_segment_results:
+                side = nearest_segment_results[3]
 
                 distance_along_line = line_geom.lineLocatePoint(point_geom)
 
@@ -259,6 +229,59 @@ class BathyFlowDEM:
                 }
 
         return sn_coordinates_dict
+
+
+
+
+
+
+
+    ########################################################################
+    ##
+    ## Define flow direction for each point
+    ##
+    ########################################################################
+
+    def flowdirections(self, centerline_layer, survey_points_layer):
+        flow_directions = []  # Store flow direction for each survey point
+
+        line_feature = next(centerline_layer.getFeatures())
+        line_geom = line_feature.geometry()
+
+        for point_feat in survey_points_layer.getFeatures():
+            
+            # Convert survey point to QgsPointXY for distance calculations
+            survey_point = point_feat.geometry().asPoint()
+            
+
+            # Using QgsGeometry's closestSegmentWithContext method
+            minDist, closest_pt, afterVertex, leftOf = line_geom.closestSegmentWithContext(QgsPointXY(survey_point))
+
+            before_vertex_index = afterVertex - 1
+
+            start_point = line_geom.vertexAt(before_vertex_index)
+            end_point = line_geom.vertexAt(afterVertex)
+        
+            # Now you have the start and end points of the closest segment
+            # You can use these points for further calculations or analysis
+            print(f"Start Point: {start_point}, End Point: {end_point}")
+
+
+            # Calculate flow direction as an angle
+            if start_point and end_point:
+
+                dx = end_point.x() - start_point.x()
+                dy = end_point.y() - start_point.y()
+                angle_rad = math.atan2(dy, dx)
+                angle_deg = math.degrees(angle_rad)
+                flow_directions.append(angle_deg)
+            else:
+                flow_directions.append(None)
+        
+        return flow_directions
+
+
+
 
 
 
@@ -337,9 +360,23 @@ class BathyFlowDEM:
                     output_path = user_output_dir_path + "\\bathyflowdem_output.shp"
                 else:
                     output_path = user_output_dir_path + "\\" + user_output_layer_name + ".shp"
-            
+
+        
 
 
+
+
+
+
+            ########################################################################
+            ##
+            ## Test flow_direction
+            ##
+            ########################################################################
+
+
+            flow_direction = self.flowdirections(centerline_layer, point_layer)
+            print(flow_direction)
 
 
 
@@ -422,6 +459,14 @@ class BathyFlowDEM:
 
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
+
+
+
+
+
+
+
+
 
 
 
