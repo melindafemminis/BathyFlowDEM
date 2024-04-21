@@ -48,13 +48,3 @@ class BathyFlowDEMDialog(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
-
-        """ Everything below here will be deleted for the final plugin
-        it a test to be able to use the console and see how the plugin works."""
-        self.pbTest.clicked.connect(self.onPbTestClicked)
-
-
-    def onPbTestClicked(self):
-
-        """Get user inputs"""
-        print("Test button clicked")

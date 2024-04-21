@@ -136,10 +136,10 @@ class BathyFlowDEM:
             parent=self.iface.mainWindow())
 
         # Connect dialog signals and slots
-        self.dlg.cbInputPoints.layerChanged.connect(self.onCbInputPointsWidget_layerChanged)
+        self.dlg.cbInputPointLayer.layerChanged.connect(self.oncbInputPointLayerWidget_layerChanged)
 
         # Populate attribute field with selected point layer
-        self.onCbInputPointsWidget_layerChanged()
+        self.oncbInputPointLayerWidget_layerChanged()
 
 
 
@@ -169,12 +169,12 @@ class BathyFlowDEM:
 
 
 
-    def onCbInputPointsWidget_layerChanged(self):
-        """Slot method called when the seleted layer in cbInputPoints is changed"""
+    def oncbInputPointLayerWidget_layerChanged(self):
+        """Slot method called when the seleted layer in cbInputPointLayer is changed"""
 
-        current_point_layer = self.dlg.cbInputPoints.currentLayer()
-        self.dlg.cbAttributeFields.setLayer(current_point_layer)
-        self.dlg.cbAttributeFields.setFilters(QgsFieldProxyModel.Numeric)
+        current_point_layer = self.dlg.cbInputPointLayer.currentLayer()
+        self.dlg.cbAttFields.setLayer(current_point_layer)
+        self.dlg.cbAttFields.setFilters(QgsFieldProxyModel.Numeric)
         print("Point layer changed method.")
 
 
@@ -200,11 +200,18 @@ class BathyFlowDEM:
     ##
     ########################################################################
     
-    
 
-    def conversion_infos(self, points, centerline):
-        """ Function that returns a dictionnary with, for each point, the side of the line it is located in "side" and the 
-        distance along the center line in "distance". """
+    def conversion_infos(self, survey_points_layer, centerline):
+        """
+        Calculates for each point distance along the centerline, side of the centerline and flow direction.
+
+        Args:
+            centerline_layer (QgsVectorLayer): Input layer with a single line of flow direction
+            survey_points_layer (QgsVectorLayer): Input layer for which flow direction will be calculated
+
+        Returns:
+            dictionnary: Key is point ID with side, distance along line and flowdir values.
+        """
 
         # Initialize a dictionary to store distances along the line for each point
         results_dir = {}
@@ -213,7 +220,7 @@ class BathyFlowDEM:
         line_geom = line_feature.geometry()
 
         # Iterate over each feature in the point layer
-        for point_feature in points.getFeatures():
+        for point_feature in survey_points_layer.getFeatures():
             point_geom = point_feature.geometry()
             # closestSegmentWithContext() returns a tuple with [point, nearest point on segment, ]
             minDist, closest_pt, afterVertex, leftOf = line_geom.closestSegmentWithContext(point_geom.asPoint())
@@ -235,6 +242,8 @@ class BathyFlowDEM:
 
                 dx = end_point.x() - start_point.x()
                 dy = end_point.y() - start_point.y()
+                #  Calculates the angle in radians of the segment relative to the horizontal axis, 
+                # taking into account the correct quadrant.
                 angle_rad = math.atan2(dy, dx)
                 angle_deg = math.degrees(angle_rad)
             else:
@@ -259,7 +268,7 @@ class BathyFlowDEM:
     ##
     ########################################################################
 
-    def flowdirections(self, centerline_layer, survey_points_layer):
+    # def flowdirections(self, centerline_layer, survey_points_layer):
         """
         Calculates flow direction for each segment
 
@@ -298,7 +307,7 @@ class BathyFlowDEM:
                 dy = end_point.y() - start_point.y()
                 angle_rad = math.atan2(dy, dx)
                 angle_deg = math.degrees(angle_rad)
-                flow_directions.append(angle_deg)
+                flow_directions.append(angle_deg) # Where 0 =N, 90 =E, -90 = S and -180 = W
             else:
                 flow_directions.append(None)
         
@@ -404,9 +413,9 @@ class BathyFlowDEM:
         ########################################################################
 
         # Restrict the type of layer that can be selected in the combo boxes
-        self.dlg.cbInputBoundary.setFilters(QgsMapLayerProxyModel.PolygonLayer)
-        self.dlg.cbInputPoints.setFilters(QgsMapLayerProxyModel.PointLayer)
-        self.dlg.cbInputCenterline.setFilters(QgsMapLayerProxyModel.LineLayer)
+        self.dlg.cbInputROI.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        self.dlg.cbInputPointLayer.setFilters(QgsMapLayerProxyModel.PointLayer)
+        self.dlg.cbInputVectorCenterline.setFilters(QgsMapLayerProxyModel.LineLayer)
 
         # PLaceholders for output layer name
         self.dlg.leOutputName.setPlaceholderText("bathyflowDEM_output")
@@ -418,7 +427,7 @@ class BathyFlowDEM:
         result = self.dlg.exec_()
 
         # Populate attribute field with selected point layer - and update is changed
-        self.onCbInputPointsWidget_layerChanged()
+        self.oncbInputPointLayerWidget_layerChanged()
         
     
 
@@ -438,12 +447,13 @@ class BathyFlowDEM:
             ########################################################################
             
             # Get user input layers
-            point_layer = self.dlg.cbInputPoints.currentLayer()
-            centerline_layer = self.dlg.cbInputCenterline.currentLayer()
-            boundary_layer = self.dlg.cbInputBoundary.currentLayer()
+            point_layer = self.dlg.cbInputPointLayer.currentLayer()
+            centerline_layer = self.dlg.cbInputVectorCenterline.currentLayer()
+            boundary_layer = self.dlg.cbInputROI.currentLayer()
 
             # Other parameters
             cell_size = self.dlg.sbCellSize.value()
+            anisotropy_value = self.dlg.sbAnisotropyValue.value()
             show_output_checked = self.dlg.cbOpenOutputFile.isChecked()
 
             # Get user output path 
@@ -534,7 +544,7 @@ class BathyFlowDEM:
             ## Get S for each point, the distance along the centerline
             ########################################################################
 
-            infos_dict = self.conversion_infos(centerline=centerline_layer, points=point_layer_xy_sn)
+            infos_dict = self.conversion_infos(centerline=centerline_layer, survey_points_layer=point_layer_xy_sn)
             print(infos_dict)
 
 
