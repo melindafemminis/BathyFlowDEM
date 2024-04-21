@@ -202,12 +202,12 @@ class BathyFlowDEM:
     
     
 
-    def calculate_distances_along_line(self, points, centerline):
+    def conversion_infos(self, points, centerline):
         """ Function that returns a dictionnary with, for each point, the side of the line it is located in "side" and the 
         distance along the center line in "distance". """
 
         # Initialize a dictionary to store distances along the line for each point
-        sn_coordinates_dict = {}
+        results_dir = {}
 
         line_feature = next(centerline.getFeatures())
         line_geom = line_feature.geometry()
@@ -216,19 +216,36 @@ class BathyFlowDEM:
         for point_feature in points.getFeatures():
             point_geom = point_feature.geometry()
             # closestSegmentWithContext() returns a tuple with [point, nearest point on segment, ]
-            nearest_segment_results = line_geom.closestSegmentWithContext(point_geom.asPoint())
+            minDist, closest_pt, afterVertex, leftOf = line_geom.closestSegmentWithContext(point_geom.asPoint())
 
-            if nearest_segment_results:
-                side = nearest_segment_results[3]
+            # To know on which side of the center line the point lies
+            side = leftOf
 
-                distance_along_line = line_geom.lineLocatePoint(point_geom)
+            # To know the distance along the center line for each point
+            distance_along_line = line_geom.lineLocatePoint(point_geom)
 
-                sn_coordinates_dict[point_feature.id()] = {
-                    'side': side,
-                    'distance_along_line': distance_along_line
-                }
+            # To know flow direction 
+            before_vertex_index = afterVertex - 1
 
-        return sn_coordinates_dict
+            start_point = line_geom.vertexAt(before_vertex_index)
+            end_point = line_geom.vertexAt(afterVertex)
+
+            # Calculate flow direction as an angle
+            if start_point and end_point:
+
+                dx = end_point.x() - start_point.x()
+                dy = end_point.y() - start_point.y()
+                angle_rad = math.atan2(dy, dx)
+                angle_deg = math.degrees(angle_rad)
+            else:
+                angle_deg = None
+        
+
+            results_dir[point_feature.id()] = {'side': side, 
+                                                    'distance_along_line': distance_along_line,
+                                                    'flowdir': angle_deg}
+
+        return results_dir
 
 
 
@@ -485,14 +502,14 @@ class BathyFlowDEM:
                  point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
             point_layer_xy_sn.updateFields()
 
-            QgsProject.instance().addMapLayer(point_layer_xy_sn)
+
 
 
             ########################################################################
             ## Get flow direction for all points
             ########################################################################
 
-            flow_direction = self.flowdirections(centerline_layer, point_layer_xy_sn)
+            #flow_direction = self.flowdirections(centerline_layer, point_layer_xy_sn)
 
 
 
@@ -517,8 +534,8 @@ class BathyFlowDEM:
             ## Get S for each point, the distance along the centerline
             ########################################################################
 
-            sn_infos_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer_xy_sn)
-
+            infos_dict = self.conversion_infos(centerline=centerline_layer, points=point_layer_xy_sn)
+            print(infos_dict)
 
 
             ########################################################################
@@ -534,18 +551,20 @@ class BathyFlowDEM:
                     row = f['id'] + 1
                     iterator = shortest_dist_point_centerline_layer.getFeatures(QgsFeatureRequest().setFilterFid(row))
                     feature = next(iterator)
-                    n = feature['distance']
+                    n_coordinate = feature['distance']
                     
                     # Change the sign to negative according to which side of the centerline the point it located
-                    if sn_infos_dictionnary[f.id()]['side'] == -1:
-                        n *= -1
+                    if infos_dict[f.id()]['side'] == -1:
+                        n_coordinate *= -1
 
-                    FlowDir = flow_direction[f.id()]
+                    flow_direction =  infos_dict[f.id()]['flowdir']
+
+                    s_coordinate = infos_dict[f.id()]['distance_along_line']
 
                     # Add values to the layer
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, sn_infos_dictionnary[f.id()]['distance_along_line'])
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)   
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, FlowDir)            
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, s_coordinate)
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, n_coordinate)   
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 6, flow_direction)            
 
 
 
