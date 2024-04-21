@@ -33,7 +33,7 @@ from qgis.core.additions.edit import edit
 import processing
 from qgis.analysis import QgsIDWInterpolator
 
-from osgeo import gdal
+from osgeo import gdal, osr
 from osgeo.gdalconst import *
 
 # Initialize Qt resources from file resources.py
@@ -277,6 +277,78 @@ class BathyFlowDEM:
         print(flow_directions)
         
         return flow_directions
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ########################################################################
+    ##
+    ## Interpolation
+    ##
+    ########################################################################
+        
+    def eidw(self, target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance):
+        """
+        Perform IDW interpolation using anisotropy along the already aligned S and N coordinates.
+
+        Args:
+            point_layer (QgsVectorLayer): Input layer with point features containing S, N, and Z.
+            value_field (str): Name of the field with values to interpolate.
+            target_s (float): Target point's S coordinate.
+            target_n (float): Target point's N coordinate.
+            anisotropy_ratio (float): Factor by which distances across the flow (N direction) are scaled.
+
+        Returns:
+            float: Interpolated value at the target location.
+        """
+        print("In the eidw function.")
+
+        sum_weighted_values = 0
+        sum_weights = 0
+        distances = []
+        
+        for feature in point_layer.getFeatures():
+            s = feature['S']
+            n = feature['N']
+            value = feature[value_field]
+            
+            # Calculate distances in the S and N directions
+            ds = s - target_s
+            dn = n - target_n * anisotropy_ratio
+
+            # Calculate the anisotropic distance by modifying it on the N axis
+            distance = (ds**2 + dn**2) ** 0.5
+
+            if distance <= max_distance:
+                distances.append((distance, value))
+            
+            if distance < 0.0001:  # If point is right on it/super close
+                return value
+            
+
+        for distance, value, in distances:
+            weight = 1 / distance
+            sum_weights += weight
+            sum_weighted_values += weight * value
+        
+        if sum_weights == 0:
+            return None 
+        
+        return sum_weighted_values / sum_weights
+              
+        
 
 
 
@@ -360,20 +432,6 @@ class BathyFlowDEM:
                     output_path = user_output_dir_path + "\\" + user_output_layer_name + ".shp"
 
         
-
-
-
-
-
-
-            ########################################################################
-            ##
-            ## Test flow_direction
-            ##
-            ########################################################################
-
-
-            flow_direction = self.flowdirections(centerline_layer, point_layer)
             
 
 
@@ -383,7 +441,30 @@ class BathyFlowDEM:
 
 
 
+            ########################################################################
+            ##
+            ## Create new raster layer to point_layer extent and user defined pixel size
+            ##
+            ########################################################################
 
+
+
+
+
+
+
+
+
+
+            ########################################################################
+            ##
+            ## Get flow_direction
+            ##
+            ########################################################################
+
+
+            flow_direction = self.flowdirections(centerline_layer, point_layer)
+            
 
 
 
@@ -418,7 +499,7 @@ class BathyFlowDEM:
 
 
 
-            # Get the shortest distance from each point to the centerline $
+            # Get the shortest distance from each point to the centerline
             short_dist_params = {
             'SOURCE': point_layer,
             'DESTINATION': centerline_layer,
@@ -431,8 +512,6 @@ class BathyFlowDEM:
             shortest_dist_point_centerline_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
             sn_infos_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
 
-
-            flow_direction = self.flowdirections(centerline_layer, point_layer)
 
 
             # For each point, populate fields
@@ -462,6 +541,11 @@ class BathyFlowDEM:
 
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
+
+            s = 39
+            n = 3.9
+            target_z = self.eidw(s, n, 'Z', point_layer_xy_sn, 1, 150)
+            print(target_z)
 
 
 
