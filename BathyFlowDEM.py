@@ -243,6 +243,17 @@ class BathyFlowDEM:
     ########################################################################
 
     def flowdirections(self, centerline_layer, survey_points_layer):
+        """
+        Calculates flow direction for each segment
+
+        Args:
+            centerline_layer (QgsVectorLayer): Input layer with a single line of flow direction
+            survey_points_layer (QgsVectorLayer): Input layer for which flow direction will be calculated
+
+        Returns:
+            list: Flow direction for each point in order
+        """
+
         flow_directions = []  # Store flow direction for each survey point
 
         line_feature = next(centerline_layer.getFeatures())
@@ -274,7 +285,6 @@ class BathyFlowDEM:
             else:
                 flow_directions.append(None)
         
-        print(flow_directions)
         
         return flow_directions
     
@@ -326,7 +336,7 @@ class BathyFlowDEM:
             
             # Calculate distances in the S and N directions
             ds = s - target_s
-            dn = n - target_n * anisotropy_ratio
+            dn = (n - target_n) * anisotropy_ratio
 
             # Calculate the anisotropic distance by modifying it on the N axis
             distance = (ds**2 + dn**2) ** 0.5
@@ -336,6 +346,9 @@ class BathyFlowDEM:
             
             if distance < 0.0001:  # If point is right on it/super close
                 return value
+            
+        print(distances[1][0])
+        print(distances[1][1])
             
 
         for distance, value, in distances:
@@ -436,34 +449,6 @@ class BathyFlowDEM:
 
 
 
-
-
-
-
-
-            ########################################################################
-            ##
-            ## Create new raster layer to point_layer extent and user defined pixel size
-            ##
-            ########################################################################
-
-
-
-
-
-
-
-
-
-
-            ########################################################################
-            ##
-            ## Get flow_direction
-            ##
-            ########################################################################
-
-
-            flow_direction = self.flowdirections(centerline_layer, point_layer)
             
 
 
@@ -477,10 +462,13 @@ class BathyFlowDEM:
             ##
             ########################################################################       
 
-
             # Clone input shp point layer: comes with all attributes: id, X and Y
-            point_layer_xy_sn = point_layer.clone()
+            point_layer.selectAll()
+            point_layer_xy_sn = processing.run("native:saveselectedfeatures", {'INPUT': point_layer,
+                                                                               'OUTPUT': 'TEMPORARY_OUTPUT'})['OUTPUT']
+            point_layer.removeSelection()
             point_layer_xy_sn.setName('points_xy_and_sn')
+            print(point_layer_xy_sn)
             
             # To enable check of a particular capability 
             pl_caps = point_layer_xy_sn.dataProvider().capabilities()
@@ -497,11 +485,23 @@ class BathyFlowDEM:
                  point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
             point_layer_xy_sn.updateFields()
 
+            QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
 
-            # Get the shortest distance from each point to the centerline
+            ########################################################################
+            ## Get flow direction for all points
+            ########################################################################
+
+            flow_direction = self.flowdirections(centerline_layer, point_layer_xy_sn)
+
+
+
+            ########################################################################
+            ## Get N for each point, the distance to the centerline
+            ########################################################################
+
             short_dist_params = {
-            'SOURCE': point_layer,
+            'SOURCE': point_layer_xy_sn,
             'DESTINATION': centerline_layer,
             'METHOD': 0,
             'NEIGHBORS': 1,
@@ -510,11 +510,21 @@ class BathyFlowDEM:
             }
              # Run the algorithm
             shortest_dist_point_centerline_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
-            sn_infos_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer)
 
 
 
-            # For each point, populate fields
+            ########################################################################
+            ## Get S for each point, the distance along the centerline
+            ########################################################################
+
+            sn_infos_dictionnary = self.calculate_distances_along_line(centerline=centerline_layer, points=point_layer_xy_sn)
+
+
+
+            ########################################################################
+            ## Populate the new layer with S, N and FlowDir values
+            ########################################################################
+
             with edit(point_layer_xy_sn):
 
                 for f in point_layer_xy_sn.getFeatures():
@@ -532,7 +542,7 @@ class BathyFlowDEM:
 
                     FlowDir = flow_direction[f.id()]
 
-                    # Add s and n coordinates to attribute
+                    # Add values to the layer
                     point_layer_xy_sn.changeAttributeValue(f.id(), 3, sn_infos_dictionnary[f.id()]['distance_along_line'])
                     point_layer_xy_sn.changeAttributeValue(f.id(), 4, n)   
                     point_layer_xy_sn.changeAttributeValue(f.id(), 5, FlowDir)            
