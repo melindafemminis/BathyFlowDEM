@@ -172,8 +172,8 @@ class BathyFlowDEM:
         """Slot method called when the seleted layer in cbInputPointLayer is changed"""
 
         current_point_layer = self.dlg.cbInputPointLayer.currentLayer()
-        self.dlg.cbAttFields.setLayer(current_point_layer)
-        self.dlg.cbAttFields.setFilters(QgsFieldProxyModel.Numeric)
+        self.dlg.cbAttField.setLayer(current_point_layer)
+        self.dlg.cbAttField.setFilters(QgsFieldProxyModel.Numeric)
         print("Point layer changed method.")
 
 
@@ -195,7 +195,7 @@ class BathyFlowDEM:
 
     ########################################################################
     ##
-    ## Find the distance along a line
+    ## Methods to get S, N and flow direction 
     ##
     ########################################################################
     
@@ -253,8 +253,17 @@ class BathyFlowDEM:
 
         return results_dir
 
+    def shortest_dist(self, point_layer, line_layer):
 
+        short_dist_params = {'SOURCE': point_layer,
+                            'DESTINATION': line_layer,
+                            'METHOD': 0,
+                            'NEIGHBORS': 1,
+                            'END_OFFSET': 0,
+                            'OUTPUT': 'TEMPORARY_OUTPUT'}
 
+        result_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
+        return result_layer
 
 
 
@@ -307,9 +316,6 @@ class BathyFlowDEM:
 
 
 
-
-
-
     ########################################################################
     ##
     ## Interpolation
@@ -355,6 +361,7 @@ class BathyFlowDEM:
         if not distances:
             return -9999
         else:
+            print(len(distances))
             for distance, value, in distances:
                 weight = 1 / distance
                 sum_weights += weight
@@ -365,10 +372,6 @@ class BathyFlowDEM:
             
             return sum_weighted_values / sum_weights
               
-        
-
-
-
 
 
 
@@ -378,16 +381,11 @@ class BathyFlowDEM:
 
 
     def run(self):
-        """Run method that performs all the real work"""
-
-
-
+        """Main method"""
 
 
         ########################################################################
-        ##
         ## Set the dialog window, restrictions and updates
-        ##
         ########################################################################
 
         # Restrict the type of layer that can be selected in the combo boxes
@@ -407,26 +405,14 @@ class BathyFlowDEM:
         # Populate attribute field with selected point layer - and update is changed
         self.oncbInputPointLayerWidget_layerChanged()
         
-    
-
-
-
-
-
-
-
-
 
 
         # See if OK was pressed
         if result:
 
 
-
             ########################################################################
-            ##
             ## Get selected user's values INPUTS and OUTPUT choice/destination
-            ##
             ########################################################################
             
             # Get user input layers
@@ -434,9 +420,13 @@ class BathyFlowDEM:
             centerline_layer = self.dlg.cbInputVectorCenterline.currentLayer()
             boundary_layer = self.dlg.cbInputROI.currentLayer()
 
+            # Get name of field to interpolate
+            field_to_interpolate = str(self.dlg.cbAttField.currentText())
+
             # Other parameters
             cell_size = self.dlg.sbCellSize.value()
             anisotropy_value = self.dlg.sbAnisotropyValue.value()
+            max_distance = self.dlg.sbMaxDist.value()
             show_output_checked = self.dlg.cbOpenOutputFile.isChecked()
 
             # Get user output path 
@@ -457,16 +447,9 @@ class BathyFlowDEM:
         
 
 
-
-
-
-
-
             
             ########################################################################
-            ##
             ## Create new points layer with X, Y, S and N coordinates and flow direction
-            ##
             ########################################################################       
 
             # Clone input shp point layer: comes with all attributes: id, X and Y
@@ -493,20 +476,8 @@ class BathyFlowDEM:
             point_layer_xy_sn.updateFields()
 
 
-
-            # Get N for each point, the distance to the centerline
-            short_dist_params = {'SOURCE': point_layer_xy_sn,
-                                'DESTINATION': centerline_layer,
-                                'METHOD': 0,
-                                'NEIGHBORS': 1,
-                                'END_OFFSET': 0,
-                                'OUTPUT': 'TEMPORARY_OUTPUT'
-                                }
-             # Run the algorithm
-            shortest_dist_point_centerline_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
-
-
-            # Get S and flow direction for each point
+            # Calculate S, N and flow direction
+            shortest_dist_point_centerline_layer = self.shortest_dist(point_layer_xy_sn, centerline_layer)
             infos_dict = self.get_s_and_flow_direction(centerline=centerline_layer, survey_points_layer=point_layer_xy_sn)
 
 
@@ -539,12 +510,13 @@ class BathyFlowDEM:
 
 
 
+            ########################################################################
+            ## Prepare new layers for interpolation
+            ########################################################################   
 
+            interpolated_raster, sampled_points = self.create_raster_and_sample_points(point_layer, cell_size, boundary_layer)
 
-
-            new_raster, sampled_points = self.create_raster_and_sample_points(point_layer, cell_size, boundary_layer)
-
-            # To enable check of a particular capability 
+            # Prepare fields for the sampled_points layer
             sp_caps = sampled_points.dataProvider().capabilities()
 
             # Delete VALUE field created by pixel to layer native algorithm
@@ -563,18 +535,9 @@ class BathyFlowDEM:
                  sampled_points.dataProvider().addAttributes(sp_new_fields)
             sampled_points.updateFields()
 
-            # Get N for each point, the distance to the centerline
-            short_dist_params = {'SOURCE': sampled_points,
-                                'DESTINATION': centerline_layer,
-                                'METHOD': 0,
-                                'NEIGHBORS': 1,
-                                'END_OFFSET': 0,
-                                'OUTPUT': 'TEMPORARY_OUTPUT'
-                                }
-             # Run the algorithm
-            shortest_dist_point_centerline_layer_sampled = processing.run("native:shortestline", short_dist_params)['OUTPUT']
 
-            # Get S and flow direction for each point
+            # Get S and S for each points
+            shortest_dist_point_centerline_layer_sampled = self.shortest_dist(sampled_points, centerline_layer)
             infos_dict_sampled = self.get_s_and_flow_direction(centerline=centerline_layer, survey_points_layer=sampled_points)
 
             # Populate the new layer with S, N and FlowDir values
@@ -583,7 +546,6 @@ class BathyFlowDEM:
                 for f in sampled_points.getFeatures():
 
                     # Retrieve n, calculated by the shortest_distance algorithm
-                    # setFilterFid() needs row number, not id, so add 1
                     iterator = shortest_dist_point_centerline_layer_sampled.getFeatures(QgsFeatureRequest().setFilterFid(f.id()))
                     feature = next(iterator)
                     n_coordinate = feature['distance']
@@ -598,39 +560,46 @@ class BathyFlowDEM:
                     sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
                     sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
 
-            with edit(sampled_points):
 
+            
+            ########################################################################
+            ## interpolate value for each point
+            ########################################################################   
+                    
+            with edit(sampled_points):
                 for f in sampled_points.getFeatures():
 
                     # Get interpolated value for the point
-                    Z = self.eidw(target_s = f['S'], 
-                                target_n = f['N'], 
-                                value_field = 'Z', 
-                                point_layer=point_layer_xy_sn, 
-                                anisotropy_ratio=5, 
-                                max_distance=20)
+                    interpolated_value = self.eidw(target_s=f['S'], 
+                                                    target_n=f['N'], 
+                                                    value_field=field_to_interpolate, 
+                                                    point_layer=point_layer_xy_sn, 
+                                                    anisotropy_ratio=anisotropy_value, 
+                                                    max_distance=max_distance)
 
-                    sampled_points.changeAttributeValue(f.id(), 2, Z)
+                    sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
 
             QgsProject.instance().addMapLayer(sampled_points)
 
 
             
-            # Rasterize over the existing raster using attributes from the vector layer
+            ########################################################################
+            ## Add interpolated values to raster cells 
+            ########################################################################   
+
             params = {
                 'INPUT': sampled_points,
-                'FIELD': 'Interpolated',  # Replace 'attribute_name' with the actual field name from your vector layer
-                'BURN': 0,  # This is optional and is used if you want a specific burn value; it's often left out when using FIELD
-                'ADD': False,  # Set to True to add values to existing data instead of overwriting
-                'INPUT_RASTER': new_raster,
+                'FIELD': 'Interpolated',
+                'BURN': 0,
+                'ADD': False,
+                'INPUT_RASTER': interpolated_raster,
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
 
             result = processing.run("gdal:rasterize_over", params)
+            final_raster = QgsRasterLayer(result['OUTPUT'], 'Interpolated raster')
 
-            interpolated_raster = QgsRasterLayer(result['OUTPUT'], 'Interpolated raster')
-
-            QgsProject.instance().addMapLayer(interpolated_raster)
+            QgsProject.instance().addMapLayer(final_raster)
 
 
 
