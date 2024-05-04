@@ -299,9 +299,6 @@ class BathyFlowDEM:
         
         sampled_points = processing.run("native:pixelstopoints", pixelpoint_params)['OUTPUT']
 
-        QgsProject.instance().addMapLayer(new_raster)
-        QgsProject.instance().addMapLayer(sampled_points)
-
         return new_raster, sampled_points
 
 
@@ -558,6 +555,7 @@ class BathyFlowDEM:
             sp_new_fields = [
                 QgsField("S", QVariant.Double),
                 QgsField("N", QVariant.Double),
+                QgsField("Interpolated", QVariant.Double)
             ]
 
             # Add fields to layer and update layer
@@ -600,11 +598,24 @@ class BathyFlowDEM:
                     sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
                     sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
 
+            with edit(sampled_points):
 
-            for f in sampled_points.getFeatures():
+                for f in sampled_points.getFeatures():
 
-                Z = self.eidw(target_s = f['S'], target_n = f['N'], value_field = 'Z', point_layer=point_layer_xy_sn, anisotropy_ratio=5, max_distance=20)
-                print("Z value is " + str(Z))
+                    # Get interpolated value for the point
+                    Z = self.eidw(target_s = f['S'], 
+                                target_n = f['N'], 
+                                value_field = 'Z', 
+                                point_layer=point_layer_xy_sn, 
+                                anisotropy_ratio=5, 
+                                max_distance=20)
+                    print("Z value is " + str(Z))
+
+                    sampled_points.changeAttributeValue(f.id(), 2, Z)
+
+            QgsProject.instance().addMapLayer(sampled_points)
+
+
 
 
 
