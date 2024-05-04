@@ -520,9 +520,7 @@ class BathyFlowDEM:
                 for f in point_layer_xy_sn.getFeatures():
 
                     # Retrieve n, calculated by the shortest_distance algorithm
-                    # setFilterFid() needs row number, not id, so add 1
-                    row = f['id'] + 1
-                    iterator = shortest_dist_point_centerline_layer.getFeatures(QgsFeatureRequest().setFilterFid(row))
+                    iterator = shortest_dist_point_centerline_layer.getFeatures(QgsFeatureRequest().setFilterFid(f.id()))
                     feature = next(iterator)
                     n_coordinate = feature['distance']
                     
@@ -542,9 +540,67 @@ class BathyFlowDEM:
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
+
+
+
+
+
+
             new_raster, sampled_points = self.create_raster_and_sample_points(point_layer, cell_size, boundary_layer)
 
+            # To enable check of a particular capability 
+            pl_caps = sampled_points.dataProvider().capabilities()
 
+            # Create list of new fields
+            pl_new_fields = [
+                QgsField("id", QVariant.Double),
+                QgsField("S", QVariant.Double),
+                QgsField("N", QVariant.Double),
+            ]
+
+            # Add fields to layer and update layer
+            if pl_caps & QgsVectorDataProvider.AddAttributes:
+                 sampled_points.dataProvider().addAttributes(pl_new_fields)
+            sampled_points.updateFields()
+
+
+
+            """ # Get N for each point, the distance to the centerline
+            short_dist_params = {'SOURCE': sampled_points,
+                                'DESTINATION': centerline_layer,
+                                'METHOD': 0,
+                                'NEIGHBORS': 1,
+                                'END_OFFSET': 0,
+                                'OUTPUT': 'TEMPORARY_OUTPUT'
+                                }
+             # Run the algorithm
+            shortest_dist_point_centerline_layer_sampled = processing.run("native:shortestline", short_dist_params)['OUTPUT']
+
+
+            # Get S and flow direction for each point
+            infos_dict_sampled = self.get_s_and_flow_direction(centerline=centerline_layer, survey_points_layer=sampled_points)
+
+            # Populate the new layer with S, N and FlowDir values
+            with edit(sampled_points):
+
+                for f in sampled_points.getFeatures():
+
+                    # Retrieve n, calculated by the shortest_distance algorithm
+                    # setFilterFid() needs row number, not id, so add 1
+                    row = f['id'] + 1
+                    iterator = shortest_dist_point_centerline_layer_sampled.getFeatures(QgsFeatureRequest().setFilterFid(row))
+                    feature = next(iterator)
+                    n_coordinate = feature['distance']
+                    
+                    # Change the sign to negative according to which side of the centerline the point it located
+                    if infos_dict_sampled[f.id()]['side'] == -1:
+                        n_coordinate *= -1
+
+                    s_coordinate = infos_dict_sampled[f.id()]['distance_along_line']
+
+                    # Add values to the layer
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, s_coordinate) 
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, n_coordinate)    """
 
 
 
