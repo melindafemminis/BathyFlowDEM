@@ -299,6 +299,8 @@ class BathyFlowDEM:
         
         sampled_points = processing.run("native:pixelstopoints", pixelpoint_params)['OUTPUT']
 
+        QgsProject.instance().addMapLayer(new_raster)
+
         return new_raster, sampled_points
 
 
@@ -328,8 +330,6 @@ class BathyFlowDEM:
         Returns:
             float: Interpolated value at the target location or -9999 if no data
         """
-        print("In the eidw function.")
-
         sum_weighted_values = 0
         sum_weights = 0
         distances = []
@@ -609,16 +609,28 @@ class BathyFlowDEM:
                                 point_layer=point_layer_xy_sn, 
                                 anisotropy_ratio=5, 
                                 max_distance=20)
-                    print("Z value is " + str(Z))
 
                     sampled_points.changeAttributeValue(f.id(), 2, Z)
 
             QgsProject.instance().addMapLayer(sampled_points)
 
 
+            
+            # Rasterize over the existing raster using attributes from the vector layer
+            params = {
+                'INPUT': sampled_points,
+                'FIELD': 'Interpolated',  # Replace 'attribute_name' with the actual field name from your vector layer
+                'BURN': 0,  # This is optional and is used if you want a specific burn value; it's often left out when using FIELD
+                'ADD': False,  # Set to True to add values to existing data instead of overwriting
+                'INPUT_RASTER': new_raster,
+                'OUTPUT': 'TEMPORARY_OUTPUT'
+            }
 
+            result = processing.run("gdal:rasterize_over", params)
 
+            interpolated_raster = QgsRasterLayer(result['OUTPUT'], 'Interpolated raster')
 
+            QgsProject.instance().addMapLayer(interpolated_raster)
 
 
 
