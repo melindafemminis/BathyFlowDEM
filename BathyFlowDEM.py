@@ -264,9 +264,9 @@ class BathyFlowDEM:
     ##
     ########################################################################
 
-    def create_raster(self, survey_points_layer, pixel_size, ROI):
+    def create_raster_and_sample_points(self, survey_points_layer, pixel_size, ROI):
         ''' 
-        Creates new raster layer
+        Creates new raster layer and sample 1 point per pixel
 
         Args: 
             survey_points_layer (QgsVectorLayer): containing original survey points. used to retrieve CRS
@@ -275,9 +275,12 @@ class BathyFlowDEM:
 
         Returns:
             QgsRasterLayer with specified extent, crs and pixel_size
+            QgsVectorLayer with the sampled points
         '''
-        print("In the create_raster() function.")
+        print("In the create_raster_and_sample_points() function.")
 
+
+        # Create raster alyer
         create_raster_parars = {'EXTENT': ROI.extent(),
                                 'TARGET_CRS': survey_points_layer.crs(),
                                 'PIXEL_SIZE': pixel_size,
@@ -287,9 +290,19 @@ class BathyFlowDEM:
         created_raster = processing.run("native:createconstantrasterlayer", create_raster_parars)
         new_raster = QgsRasterLayer(created_raster['OUTPUT'], 'Grid_empty')
 
-        QgsProject.instance().addMapLayer(new_raster)
 
-        return new_raster
+        # Sample one point per pixel
+        pixelpoint_params = {'INPUT_RASTER': new_raster,
+                             'RASTER_BAND': 1,
+                             'FIELD_NAME': 'VALUE',
+                             'OUTPUT': 'TEMPORARY_OUTPUT'}
+        
+        sampled_points = processing.run("native:pixelstopoints", pixelpoint_params)['OUTPUT']
+
+        QgsProject.instance().addMapLayer(new_raster)
+        QgsProject.instance().addMapLayer(sampled_points)
+
+        return new_raster, sampled_points
 
 
 
@@ -446,10 +459,8 @@ class BathyFlowDEM:
                     output_path = user_output_dir_path + "\\" + user_output_layer_name + ".shp"
 
         
-            
 
-            self.create_raster(point_layer, cell_size, boundary_layer)
-            
+
 
 
 
@@ -531,7 +542,7 @@ class BathyFlowDEM:
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
-
+            new_raster, sampled_points = self.create_raster_and_sample_points(point_layer, cell_size, boundary_layer)
 
 
 
