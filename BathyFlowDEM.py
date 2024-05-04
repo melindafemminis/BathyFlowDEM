@@ -168,7 +168,6 @@ class BathyFlowDEM:
 
 
 
-
     def oncbInputPointLayerWidget_layerChanged(self):
         """Slot method called when the seleted layer in cbInputPointLayer is changed"""
 
@@ -200,20 +199,19 @@ class BathyFlowDEM:
     ##
     ########################################################################
     
-
-    def conversion_infos(self, survey_points_layer, centerline):
+    def get_s_and_flow_direction(self, survey_points_layer, centerline):
         """
-        Calculates for each point distance along the centerline, side of the centerline and flow direction.
+        Calculates for each point the distance along a line , the side of the line it's on and segment direction.
 
         Args:
             centerline_layer (QgsVectorLayer): Input layer with a single line of flow direction
-            survey_points_layer (QgsVectorLayer): Input layer for which flow direction will be calculated
+            survey_points_layer (QgsVectorLayer): Input layer with points
 
         Returns:
             dictionnary: Key is point ID with side, distance along line and flowdir values.
         """
 
-        # Initialize a dictionary to store distances along the line for each point
+        # Initialize a dictionary to store the values
         results_dir = {}
 
         line_feature = next(centerline.getFeatures())
@@ -222,7 +220,6 @@ class BathyFlowDEM:
         # Iterate over each feature in the point layer
         for point_feature in survey_points_layer.getFeatures():
             point_geom = point_feature.geometry()
-            # closestSegmentWithContext() returns a tuple with [point, nearest point on segment, ]
             minDist, closest_pt, afterVertex, leftOf = line_geom.closestSegmentWithContext(point_geom.asPoint())
 
             # To know on which side of the center line the point lies
@@ -231,7 +228,7 @@ class BathyFlowDEM:
             # To know the distance along the center line for each point
             distance_along_line = line_geom.lineLocatePoint(point_geom)
 
-            # To know flow direction 
+            # To know flow direction, get vertex before and after point
             before_vertex_index = afterVertex - 1
 
             start_point = line_geom.vertexAt(before_vertex_index)
@@ -242,7 +239,7 @@ class BathyFlowDEM:
 
                 dx = end_point.x() - start_point.x()
                 dy = end_point.y() - start_point.y()
-                #  Calculates the angle in radians of the segment relative to the horizontal axis, 
+                # Calculates the angle in radians of the segment relative to the horizontal axis, 
                 # taking into account the correct quadrant.
                 angle_rad = math.atan2(dy, dx)
                 angle_deg = math.degrees(angle_rad)
@@ -251,8 +248,8 @@ class BathyFlowDEM:
         
 
             results_dir[point_feature.id()] = {'side': side, 
-                                                    'distance_along_line': distance_along_line,
-                                                    'flowdir': angle_deg}
+                                                'distance_along_line': distance_along_line,
+                                                'flowdir': angle_deg}
 
         return results_dir
 
@@ -261,66 +258,38 @@ class BathyFlowDEM:
 
 
 
-
     ########################################################################
     ##
-    ## Define flow direction for each point
+    ## Create a new raster layer to user's specifications
     ##
     ########################################################################
 
-    # def flowdirections(self, centerline_layer, survey_points_layer):
-        """
-        Calculates flow direction for each segment
+    def create_raster(self, survey_points_layer, pixel_size, ROI):
+        ''' 
+        Creates new raster layer
 
-        Args:
-            centerline_layer (QgsVectorLayer): Input layer with a single line of flow direction
-            survey_points_layer (QgsVectorLayer): Input layer for which flow direction will be calculated
+        Args: 
+            survey_points_layer (QgsVectorLayer): containing original survey points. used to retrieve CRS
+            ROI (QgsVectorLayer): Region Of Interest, boundary layer used to retrieve extent
+            pixel_size (Int): user defined pixel size
 
         Returns:
-            list: Flow direction for each point in order
-        """
+            QgsRasterLayer with specified extent, crs and pixel_size
+        '''
+        print("In the create_raster() function.")
 
-        flow_directions = []  # Store flow direction for each survey point
-
-        line_feature = next(centerline_layer.getFeatures())
-        line_geom = line_feature.geometry()
-
-        for point_feat in survey_points_layer.getFeatures():
-            
-            # Convert survey point to QgsPointXY for distance calculations
-            survey_point = point_feat.geometry().asPoint()
-            
-
-            # Using QgsGeometry's closestSegmentWithContext method
-            minDist, closest_pt, afterVertex, leftOf = line_geom.closestSegmentWithContext(QgsPointXY(survey_point))
-
-            before_vertex_index = afterVertex - 1
-
-            start_point = line_geom.vertexAt(before_vertex_index)
-            end_point = line_geom.vertexAt(afterVertex)
-    
-
-            # Calculate flow direction as an angle
-            if start_point and end_point:
-
-                dx = end_point.x() - start_point.x()
-                dy = end_point.y() - start_point.y()
-                angle_rad = math.atan2(dy, dx)
-                angle_deg = math.degrees(angle_rad)
-                flow_directions.append(angle_deg) # Where 0 =N, 90 =E, -90 = S and -180 = W
-            else:
-                flow_directions.append(None)
+        create_raster_parars = {'EXTENT': ROI.extent(),
+                                'TARGET_CRS': survey_points_layer.crs(),
+                                'PIXEL_SIZE': pixel_size,
+                                'OUTPUT_TYPE': 5,
+                                'OUTPUT': 'TEMPORARY_OUTPUT'}
         
-        
-        return flow_directions
-    
+        created_raster = processing.run("native:createconstantrasterlayer", create_raster_parars)
+        new_raster = QgsRasterLayer(created_raster['OUTPUT'], 'Grid_empty')
 
+        QgsProject.instance().addMapLayer(new_raster)
 
-
-
-
-
-
+        return new_raster
 
 
 
@@ -435,6 +404,11 @@ class BathyFlowDEM:
 
 
 
+
+
+
+
+
         # See if OK was pressed
         if result:
 
@@ -474,8 +448,7 @@ class BathyFlowDEM:
         
             
 
-
-
+            self.create_raster(point_layer, cell_size, boundary_layer)
             
 
 
@@ -514,50 +487,29 @@ class BathyFlowDEM:
 
 
 
-
-            ########################################################################
-            ## Get flow direction for all points
-            ########################################################################
-
-            #flow_direction = self.flowdirections(centerline_layer, point_layer_xy_sn)
-
-
-
-            ########################################################################
-            ## Get N for each point, the distance to the centerline
-            ########################################################################
-
-            short_dist_params = {
-            'SOURCE': point_layer_xy_sn,
-            'DESTINATION': centerline_layer,
-            'METHOD': 0,
-            'NEIGHBORS': 1,
-            'END_OFFSET': 0,
-            'OUTPUT': 'TEMPORARY_OUTPUT'
-            }
+            # Get N for each point, the distance to the centerline
+            short_dist_params = {'SOURCE': point_layer_xy_sn,
+                                'DESTINATION': centerline_layer,
+                                'METHOD': 0,
+                                'NEIGHBORS': 1,
+                                'END_OFFSET': 0,
+                                'OUTPUT': 'TEMPORARY_OUTPUT'
+                                }
              # Run the algorithm
             shortest_dist_point_centerline_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
 
 
-
-            ########################################################################
-            ## Get S for each point, the distance along the centerline
-            ########################################################################
-
-            infos_dict = self.conversion_infos(centerline=centerline_layer, survey_points_layer=point_layer_xy_sn)
-            print(infos_dict)
+            # Get S and flow direction for each point
+            infos_dict = self.get_s_and_flow_direction(centerline=centerline_layer, survey_points_layer=point_layer_xy_sn)
 
 
-            ########################################################################
-            ## Populate the new layer with S, N and FlowDir values
-            ########################################################################
-
+            # Populate the new layer with S, N and FlowDir values
             with edit(point_layer_xy_sn):
 
                 for f in point_layer_xy_sn.getFeatures():
 
                     # Retrieve n, calculated by the shortest_distance algorithm
-                    # setFilterFid() needs row number, not id so add 1
+                    # setFilterFid() needs row number, not id, so add 1
                     row = f['id'] + 1
                     iterator = shortest_dist_point_centerline_layer.getFeatures(QgsFeatureRequest().setFilterFid(row))
                     feature = next(iterator)
@@ -576,15 +528,12 @@ class BathyFlowDEM:
                     point_layer_xy_sn.changeAttributeValue(f.id(), 5, n_coordinate)   
                     point_layer_xy_sn.changeAttributeValue(f.id(), 6, flow_direction)            
 
-
-
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
 
-            s = 39
-            n = 3.9
-            target_z = self.eidw(s, n, 'Z', point_layer_xy_sn, 1, 150)
-            print(target_z)
+
+
+
 
 
 
