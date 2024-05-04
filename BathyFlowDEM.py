@@ -329,7 +329,7 @@ class BathyFlowDEM:
             anisotropy_ratio (float): Factor by which distances across the flow (N direction) are scaled.
 
         Returns:
-            float: Interpolated value at the target location.
+            float: Interpolated value at the target location or -9999 if no data
         """
         print("In the eidw function.")
 
@@ -354,20 +354,19 @@ class BathyFlowDEM:
             
             if distance < 0.0001:  # If point is right on it/super close
                 return value
+                        
+        if not distances:
+            return -9999
+        else:
+            for distance, value, in distances:
+                weight = 1 / distance
+                sum_weights += weight
+                sum_weighted_values += weight * value
             
-        print(distances[1][0])
-        print(distances[1][1])
+            if sum_weights == 0:
+                return None 
             
-
-        for distance, value, in distances:
-            weight = 1 / distance
-            sum_weights += weight
-            sum_weighted_values += weight * value
-        
-        if sum_weights == 0:
-            return None 
-        
-        return sum_weighted_values / sum_weights
+            return sum_weighted_values / sum_weights
               
         
 
@@ -549,23 +548,24 @@ class BathyFlowDEM:
             new_raster, sampled_points = self.create_raster_and_sample_points(point_layer, cell_size, boundary_layer)
 
             # To enable check of a particular capability 
-            pl_caps = sampled_points.dataProvider().capabilities()
+            sp_caps = sampled_points.dataProvider().capabilities()
+
+            # Delete VALUE field created by pixel to layer native algorithm
+            if sp_caps & QgsVectorDataProvider.DeleteAttributes:
+                sampled_points.dataProvider().deleteAttributes([0])
 
             # Create list of new fields
-            pl_new_fields = [
-                QgsField("id", QVariant.Double),
+            sp_new_fields = [
                 QgsField("S", QVariant.Double),
                 QgsField("N", QVariant.Double),
             ]
 
             # Add fields to layer and update layer
-            if pl_caps & QgsVectorDataProvider.AddAttributes:
-                 sampled_points.dataProvider().addAttributes(pl_new_fields)
+            if sp_caps & QgsVectorDataProvider.AddAttributes:
+                 sampled_points.dataProvider().addAttributes(sp_new_fields)
             sampled_points.updateFields()
 
-
-
-            """ # Get N for each point, the distance to the centerline
+            # Get N for each point, the distance to the centerline
             short_dist_params = {'SOURCE': sampled_points,
                                 'DESTINATION': centerline_layer,
                                 'METHOD': 0,
@@ -575,7 +575,6 @@ class BathyFlowDEM:
                                 }
              # Run the algorithm
             shortest_dist_point_centerline_layer_sampled = processing.run("native:shortestline", short_dist_params)['OUTPUT']
-
 
             # Get S and flow direction for each point
             infos_dict_sampled = self.get_s_and_flow_direction(centerline=centerline_layer, survey_points_layer=sampled_points)
@@ -587,8 +586,7 @@ class BathyFlowDEM:
 
                     # Retrieve n, calculated by the shortest_distance algorithm
                     # setFilterFid() needs row number, not id, so add 1
-                    row = f['id'] + 1
-                    iterator = shortest_dist_point_centerline_layer_sampled.getFeatures(QgsFeatureRequest().setFilterFid(row))
+                    iterator = shortest_dist_point_centerline_layer_sampled.getFeatures(QgsFeatureRequest().setFilterFid(f.id()))
                     feature = next(iterator)
                     n_coordinate = feature['distance']
                     
@@ -599,10 +597,14 @@ class BathyFlowDEM:
                     s_coordinate = infos_dict_sampled[f.id()]['distance_along_line']
 
                     # Add values to the layer
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, s_coordinate) 
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, n_coordinate)    """
+                    sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
+                    sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
 
 
+            for f in sampled_points.getFeatures():
+
+                Z = self.eidw(target_s = f['S'], target_n = f['N'], value_field = 'Z', point_layer=point_layer_xy_sn, anisotropy_ratio=5, max_distance=20)
+                print("Z value is " + str(Z))
 
 
 
