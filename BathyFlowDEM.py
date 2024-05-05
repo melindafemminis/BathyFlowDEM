@@ -21,13 +21,14 @@
  *                                                                         *
  ***************************************************************************/
 """
+from doctest import OutputChecker
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
 import math
 
-from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsGeometry, QgsPointXY, QgsFeatureRequest, QgsRasterLayer, QgsRasterFileWriter
+from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsFeatureRequest, QgsRasterLayer, QgsRasterBandStats
 from qgis.utils import iface
 from qgis.core.additions.edit import edit
 import processing
@@ -194,9 +195,7 @@ class BathyFlowDEM:
 
 
     ########################################################################
-    ##
     ## Methods to get S, N and flow direction 
-    ##
     ########################################################################
     
     def get_s_and_flow_direction(self, survey_points_layer, centerline):
@@ -268,12 +267,10 @@ class BathyFlowDEM:
 
 
     ########################################################################
-    ##
     ## Create a new raster layer to user's specifications
-    ##
     ########################################################################
 
-    def create_raster_and_sample_points(self, survey_points_layer, pixel_size, ROI):
+    def create_sample_points(self, survey_points_layer, pixel_size, ROI):
         ''' 
         Creates new raster layer and sample 1 point per pixel
 
@@ -308,18 +305,14 @@ class BathyFlowDEM:
         
         sampled_points = processing.run("native:pixelstopoints", pixelpoint_params)['OUTPUT']
 
-        QgsProject.instance().addMapLayer(new_raster)
-
-        return new_raster, sampled_points
+        return sampled_points
 
 
 
 
 
     ########################################################################
-    ##
     ## Interpolation
-    ##
     ########################################################################
         
     def eidw(self, target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance):
@@ -359,7 +352,7 @@ class BathyFlowDEM:
                 return value
                         
         if not distances:
-            return -9999
+            return None
         else:
             print(len(distances))
             for distance, value, in distances:
@@ -514,7 +507,7 @@ class BathyFlowDEM:
             ## Prepare new layers for interpolation
             ########################################################################   
 
-            interpolated_raster, sampled_points = self.create_raster_and_sample_points(point_layer, cell_size, boundary_layer)
+            sampled_points = self.create_sample_points(point_layer, cell_size, boundary_layer)
 
             # Prepare fields for the sampled_points layer
             sp_caps = sampled_points.dataProvider().capabilities()
@@ -590,17 +583,26 @@ class BathyFlowDEM:
             params = {
                 'INPUT': sampled_points,
                 'FIELD': 'Interpolated',
+                'DATA_TYPE': 5,
                 'BURN': 0,
-                'ADD': False,
-                'INPUT_RASTER': interpolated_raster,
+                'USE_Z':False,
+                'UNITS':1,
+                'WIDTH': cell_size,
+                'HEIGHT': cell_size,
+                'EXTENT': boundary_layer.extent(),
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
 
-            result = processing.run("gdal:rasterize_over", params)
-            final_raster = QgsRasterLayer(result['OUTPUT'], 'Interpolated raster')
+            rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
 
+            final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
             QgsProject.instance().addMapLayer(final_raster)
 
+            #Debugging
+            stats = final_raster.dataProvider().bandStatistics(1, QgsRasterBandStats.All)
+            min = stats.minimumValue
+            max = stats.maximumValue
+            print(min, max)
 
 
 
