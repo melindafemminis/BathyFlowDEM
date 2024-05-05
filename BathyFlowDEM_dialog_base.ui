@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>371</width>
+    <width>516</width>
     <height>482</height>
    </rect>
   </property>
@@ -101,15 +101,24 @@
        <layout class="QHBoxLayout" name="horizontalLayout_7">
         <item>
          <widget class="QLabel" name="label_10">
+          <property name="toolTip">
+           <string/>
+          </property>
           <property name="text">
-           <string>Anisotropy ratio</string>
+           <string>Anisotropy ratio:</string>
           </property>
          </widget>
         </item>
         <item>
          <widget class="QgsSpinBox" name="sbAnisotropyValue">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;During the interpolation, distances across the flow direction will be multiplied by this ratio, giving more weight to the points in the flow direction.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="frame">
            <bool>true</bool>
+          </property>
+          <property name="minimum">
+           <number>1</number>
           </property>
           <property name="singleStep">
            <number>1</number>
@@ -126,12 +135,15 @@
         <item>
          <widget class="QLabel" name="label_12">
           <property name="text">
-           <string>Max distance</string>
+           <string>Max distance:</string>
           </property>
          </widget>
         </item>
         <item>
          <widget class="QgsSpinBox" name="sbMaxDist">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;During interpolation, only the points within this distance will be used. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="singleStep">
            <number>1</number>
           </property>
@@ -147,12 +159,15 @@
         <item>
          <widget class="QLabel" name="label_6">
           <property name="text">
-           <string>Output raster cell size (m):</string>
+           <string>Output raster cell size (map unit):</string>
           </property>
          </widget>
         </item>
         <item>
          <widget class="QSpinBox" name="sbCellSize">
+          <property name="toolTip">
+           <string>Cell size in map units</string>
+          </property>
           <property name="value">
            <number>10</number>
           </property>
