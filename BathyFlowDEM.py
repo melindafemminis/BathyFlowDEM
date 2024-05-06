@@ -171,6 +171,37 @@ class BathyFlowDEM:
 
 
 
+
+
+
+    ########################################################################
+    ## Tests and checks
+    ########################################################################
+
+    def allFieldsHaveLayer(self):
+
+        points = self.dlg.cbInputPointLayer.currentLayer()
+        centerline = self.dlg.cbInputVectorCenterline.currentLayer()
+        polygon = self.dlg.cbInputROI.currentLayer()
+
+        if points == None or centerline == None or polygon == None:
+           return False
+        else: 
+            return True
+
+
+    def outputPathExists(self):
+
+        path = self.dlg.saveDirWidget.filePath() 
+
+        if not path: 
+            return False
+        else:
+            return True
+
+
+
+
     ########################################################################
     ## Methods linkes to Qt Widgets
     ########################################################################
@@ -184,14 +215,13 @@ class BathyFlowDEM:
         Called when the OK button is clicked. 
         Tests validity of the data and run the main function run()
         """
+
         print('Start button')
 
-        points = self.dlg.cbInputPointLayer.currentLayer()
-        centerline = self.dlg.cbInputVectorCenterline.currentLayer()
-        polygon = self.dlg.cbInputROI.currentLayer()
-        
-        if points == None or centerline == None or polygon == None:
+        if self.allFieldsHaveLayer() == False:
            self.plugin_message_bar.pushMessage("Warning", "All input fields must have a layer selected.", level=Qgis.Warning)
+        elif self.dlg.cbTempLayer.isChecked() == False and self.outputPathExists() == False:
+            self.plugin_message_bar.pushMessage("Warning", "Set output path or check 'Save to  temporary layer'.", level=Qgis.Warning)
         else: 
             self.run()
 
