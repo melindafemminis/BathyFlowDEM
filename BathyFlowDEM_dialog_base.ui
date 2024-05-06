@@ -141,7 +141,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QgsSpinBox" name="sbCellSize_2">
+             <widget class="QgsSpinBox" name="sbMaxDist">
               <property name="minimum">
                <number>1</number>
               </property>

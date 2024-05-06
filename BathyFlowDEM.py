@@ -202,6 +202,11 @@ class BathyFlowDEM:
 
 
 
+
+
+
+
+
     ########################################################################
     ## Methods linkes to Qt Widgets
     ########################################################################
@@ -216,8 +221,7 @@ class BathyFlowDEM:
         Tests validity of the data and run the main function run()
         """
 
-        print('Start button')
-
+        # Checks validity of user's inputs
         if self.allFieldsHaveLayer() == False:
            self.plugin_message_bar.pushMessage("Warning", "All input fields must have a layer selected.", level=Qgis.Warning)
         elif self.dlg.cbTempLayer.isChecked() == False and self.outputPathExists() == False:
@@ -244,8 +248,9 @@ class BathyFlowDEM:
 
 
     def oncbTempLayer_stateChanged(self):
-        """Slot method called when cbTempLayer checkbox's state changes. (click)"""
-        print('State Changed.')
+        """
+        Slot method called when cbTempLayer checkbox's state changes. (click)
+        """
 
         cbTempLayer = self.dlg.cbTempLayer
 
@@ -263,21 +268,11 @@ class BathyFlowDEM:
 
 
 
-
-
-
-
-
-
-
-
-
-
     ########################################################################
     ## Methods to get S, N and flow direction 
     ########################################################################
     
-    def get_s_and_flow_direction(self, survey_points_layer, centerline):
+    def get_s_and_flow_direction(self, point_layer, centerline):
         """
         Calculates for each point the distance along a line , the side of the line it's on and segment direction.
 
@@ -289,6 +284,7 @@ class BathyFlowDEM:
             dictionnary: Key is point ID with side, distance along line and flowdir values.
         """
 
+
         # Initialize a dictionary to store the values
         results_dir = {}
 
@@ -296,7 +292,7 @@ class BathyFlowDEM:
         line_geom = line_feature.geometry()
 
         # Iterate over each feature in the point layer
-        for point_feature in survey_points_layer.getFeatures():
+        for point_feature in point_layer.getFeatures():
             point_geom = point_feature.geometry()
             minDist, closest_pt, afterVertex, leftOf = line_geom.closestSegmentWithContext(point_geom.asPoint())
 
@@ -324,29 +320,35 @@ class BathyFlowDEM:
             else:
                 angle_deg = None
         
-
             results_dir[point_feature.id()] = {'side': side, 
                                                 'distance_along_line': distance_along_line,
                                                 'flowdir': angle_deg}
 
         return results_dir
 
-    def shortest_dist(self, point_layer, line_layer):
+
+    def shortest_dist(self, point_layer, centerline):
+
 
         short_dist_params = {'SOURCE': point_layer,
-                            'DESTINATION': line_layer,
+                            'DESTINATION': centerline,
                             'METHOD': 0,
                             'NEIGHBORS': 1,
                             'END_OFFSET': 0,
                             'OUTPUT': 'TEMPORARY_OUTPUT'}
 
         result_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
+
         return result_layer
 
 
 
+
+
+
+
     ########################################################################
-    ## Create a new raster layer to user's specifications
+    ## Create sampled points
     ########################################################################
 
     def create_sample_points(self, survey_points_layer, pixel_size, ROI):
@@ -359,10 +361,8 @@ class BathyFlowDEM:
             pixel_size (Int): user defined pixel size
 
         Returns:
-            QgsRasterLayer with specified extent, crs and pixel_size
             QgsVectorLayer with the sampled points
         '''
-        print("In the create_raster_and_sample_points() function.")
 
 
         # Create raster alyer
@@ -390,8 +390,11 @@ class BathyFlowDEM:
 
 
 
+
+
+
     ########################################################################
-    ## Interpolation
+    ## Interpolation with anisotropy
     ########################################################################
         
     def eidw(self, target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance):
@@ -433,7 +436,6 @@ class BathyFlowDEM:
         if not distances:
             return None
         else:
-            print(len(distances))
             for distance, value, in distances:
                 weight = 1 / distance
                 sum_weights += weight
@@ -465,7 +467,6 @@ class BathyFlowDEM:
         self.dlg.cbInputPointLayer.setFilters(QgsMapLayerProxyModel.PointLayer)
         self.dlg.cbInputVectorCenterline.setFilters(QgsMapLayerProxyModel.LineLayer)
 
-
         # Show the dialog
         self.dlg.show()
 
@@ -475,11 +476,10 @@ class BathyFlowDEM:
         # Populate attribute field with selected point layer - and update if changed
         self.oncbInputPointLayerWidget_layerChanged()
 
-        # 
+        # Enables/disablesQgsFileWidget
         self.oncbTempLayer_stateChanged()
 
 
-        # See if OK was pressed
         if result:
 
 
@@ -487,8 +487,7 @@ class BathyFlowDEM:
             ## Get selected user's values INPUTS and OUTPUT choice/destination
             ########################################################################
 
-            
-            
+
             # Get user input layers
             point_layer = self.dlg.cbInputPointLayer.currentLayer()
             centerline_layer = self.dlg.cbInputVectorCenterline.currentLayer()
@@ -501,17 +500,13 @@ class BathyFlowDEM:
             cell_size = self.dlg.sbCellSize.value()
             anisotropy_value = self.dlg.sbAnisotropyValue.value()
             max_distance = self.dlg.sbMaxDist.value()
-            show_output_checked = self.dlg.cbOpenOutputFile.isChecked()
-
-            # Check user inputs' validity
-            self.check_data_inputs(point_layer, centerline_layer, boundary_layer)
 
 
         
 
 
             
-            """ ########################################################################
+            ########################################################################
             ## Create new points layer with X, Y, S and N coordinates and flow direction
             ########################################################################       
 
@@ -521,7 +516,6 @@ class BathyFlowDEM:
                                                                                'OUTPUT': 'TEMPORARY_OUTPUT'})['OUTPUT']
             point_layer.removeSelection()
             point_layer_xy_sn.setName('points_xy_and_sn')
-            print(point_layer_xy_sn)
             
             # To enable check of a particular capability 
             pl_caps = point_layer_xy_sn.dataProvider().capabilities()
@@ -541,11 +535,12 @@ class BathyFlowDEM:
 
             # Calculate S, N and flow direction
             shortest_dist_point_centerline_layer = self.shortest_dist(point_layer_xy_sn, centerline_layer)
-            infos_dict = self.get_s_and_flow_direction(centerline=centerline_layer, survey_points_layer=point_layer_xy_sn)
+            infos_dict = self.get_s_and_flow_direction(point_layer_xy_sn, centerline_layer)
 
 
             # Populate the new layer with S, N and FlowDir values
             with edit(point_layer_xy_sn):
+
 
                 for f in point_layer_xy_sn.getFeatures():
 
@@ -563,11 +558,9 @@ class BathyFlowDEM:
                     s_coordinate = infos_dict[f.id()]['distance_along_line']
 
                     # Add values to the layer
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 4, s_coordinate)
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 5, n_coordinate)   
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 6, flow_direction)      
-
-            progressBar.setValue(10)      
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 1, s_coordinate)
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 2, n_coordinate)   
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, flow_direction)      
 
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
@@ -603,7 +596,7 @@ class BathyFlowDEM:
 
             # Get S and S for each points
             shortest_dist_point_centerline_layer_sampled = self.shortest_dist(sampled_points, centerline_layer)
-            infos_dict_sampled = self.get_s_and_flow_direction(centerline=centerline_layer, survey_points_layer=sampled_points)
+            infos_dict_sampled = self.get_s_and_flow_direction(sampled_points, centerline_layer)
 
             # Populate the new layer with S, N and FlowDir values
             with edit(sampled_points):
@@ -625,7 +618,6 @@ class BathyFlowDEM:
                     sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
                     sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
 
-            progressBar.setValue(20)
             
             ########################################################################
             ## interpolate value for each point
@@ -644,7 +636,6 @@ class BathyFlowDEM:
 
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
-            progressBar.setValue(80)
 
             QgsProject.instance().addMapLayer(sampled_points)
 
@@ -667,62 +658,33 @@ class BathyFlowDEM:
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
 
-            rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
-
-            final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
-            QgsProject.instance().addMapLayer(final_raster)
-
-            #Debugging
-            progressBar.setValue(90) """
-
-
-
-
-
-
-
-
-            """Tests and errors"""
             
 
+            folder_path = self.dlg.saveDirWidget.filePath()
+            DATANAME = 'Interpolated raster'
+            full_path = os.path.join(folder_path, DATANAME + '.tif' )
+            print(full_path)
 
-"""             if show_output_checked == True:
+            params_save = {
+                'INPUT': sampled_points,
+                'FIELD': 'Interpolated',
+                'DATA_TYPE': 5,
+                'BURN': 0,
+                'USE_Z':False,
+                'UNITS':1,
+                'WIDTH': cell_size,
+                'HEIGHT': cell_size,
+                'EXTENT': boundary_layer.extent(),
+                'OUTPUT': full_path
+            }
 
-                # No youtput dir selected, no layer name but load layer checked
-                if not user_output_dir_path and not user_output_layer_name: 
-                    print("Load layer to map checked, no dir and not output name.")
-
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
-                                                                                  'ALL_PARTS':False,
-                                                                                  'OUTPUT':'TEMPORARY_OUTPUT', 
-                                                                                  'NAME':'bathyflowDEM_output'})
-                    
-                # if there is a dir path, output path was defined earlier
-                elif not user_output_dir_path:
-                    print("Load layer to map checked, no dir path selected so only temp.")
-                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
-                                                                                  'ALL_PARTS':False,
-                                                                                  'OUTPUT': output_path})
-
-                else:
-                    print("Load layer to map checked, dir selected so load in project + export with output path.")
-                    self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
-
+            if self.dlg.cbTempLayer.isChecked():      
+                rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
+                final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
+                QgsProject.instance().addMapLayer(final_raster)
             else:
-
-                # if no output dir selected
-                if not user_output_dir_path: # wether user added filename or not
-                    print("ERROR, there is no saving path and no load to project. Choose one method.")
-                    self.iface.messageBar().pushMessage("BathyFlowDEM", "Choose output directory or to load temporary layer.", level=Qgis.Warning)
-
-
-                else: # if there is a dir path, output path was defined earlier
-                    print("Box to laod layer not checked, dir path selected.")
-                    new_layer = processing.run("native:centroids", {'INPUT':boundary_layer,
-                                                                    'ALL_PARTS':False,
-                                                                    'OUTPUT': output_path})
-                    self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success) """
-      
-            
-
-
+                if self.dlg.cbOpenOutputFile.isChecked():
+                    rasterize_raster = processing.runAndLoadResults("gdal:rasterize", params_save)
+                else: 
+                    rasterize_raster = processing.run("gdal:rasterize", params_save)
+                    
