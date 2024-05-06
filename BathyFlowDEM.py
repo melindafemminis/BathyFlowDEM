@@ -31,8 +31,8 @@ import math
 from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsFeatureRequest, QgsRasterLayer, QgsRasterBandStats
 from qgis.utils import iface
 from qgis.core.additions.edit import edit
+from qgis.gui import QgsMessageBar
 import processing
-from qgis.analysis import QgsIDWInterpolator
 
 from osgeo import gdal, osr
 from osgeo.gdalconst import *
@@ -54,6 +54,7 @@ class BathyFlowDEM:
     """QGIS Plugin Implementation."""
 
     def __init__(self, iface):
+
         # Save reference to the QGIS interface
         self.iface = iface                                                                                                                          
         # initialize plugin directory
@@ -126,8 +127,16 @@ class BathyFlowDEM:
 
 
 
+
+
+    ########################################################################
+    ## To install and uninstall plugin
+    ########################################################################
+    
     def initGui(self):
-        """Create the menu entries and toolbar icons inside the QGIS GUI."""
+        """Create the menu entries and toolbar icons inside the QGIS GUI.
+        Called only once on install (or on reload if dev)
+        """
 
         icon_path = ':/plugins/BathyFlowDEM/icon.png'
         self.add_action(
@@ -136,17 +145,22 @@ class BathyFlowDEM:
             callback=self.run,
             parent=self.iface.mainWindow())
 
-        # Connect dialog signals and slots
+        # Connect dialog signals and slots for user interaction with GUI
         self.dlg.cbInputPointLayer.layerChanged.connect(self.oncbInputPointLayerWidget_layerChanged)
+        self.dlg.cbTempLayer.stateChanged.connect(self.oncbTempLayer_stateChanged)
+        self.dlg.buttonOK.clicked.connect(self.onStart)
+        self.dlg.buttonCancel.clicked.connect(self.onCancel)
 
-        # Populate attribute field with selected point layer
+        # Populate attribute field 
         self.oncbInputPointLayerWidget_layerChanged()
 
-
+        # Create message bar for user communication // ui must be in vertical layout
+        self.plugin_message_bar = QgsMessageBar()
+        self.dlg.verticalLayout.insertWidget(0, self.plugin_message_bar)
 
 
     def unload(self):
-        """Removes the plugin menu item and icon from QGIS GUI."""
+        """Removes the plugin menu item and icon from QGIS GUI when uninstalling plugin"""
         for action in self.actions:
             self.iface.removePluginMenu(
                 self.tr(u'&BathyFlowDEM'),
@@ -155,18 +169,40 @@ class BathyFlowDEM:
 
 
 
-    # Errors and exceptions functions
-    def check_data_inputs(self, points, centerline, polygon):
-        if points == None or centerline == None or polygon == None:
-            self.iface.messageBar().pushMessage("Error", "All input fields must have a layer selected.", level=Qgis.Critical)
-            pass
-        elif str(points.fields().names()) != [str(['x', 'y', 'z']), str(['X', 'Y', 'Z'])]:
-            self.iface.messageBar().pushMessage("Error", "Point layer's fields' names must be X,Y,Z. Modify and try again.", level=Qgis.Critical)
-            pass
-        else: 
-            print(points.fields.names())
-            return True   
 
+
+    ########################################################################
+    ## Methods linkes to Qt Widgets
+    ########################################################################
+    
+    def clearMessageBar(self):
+        self.plugin_message_bar.clearWidgets()
+
+
+    def onStart(self):
+        """
+        Called when the OK button is clicked. 
+        Tests validity of the data and run the main function run()
+        """
+        print('Start button')
+
+        points = self.dlg.cbInputPointLayer.currentLayer()
+        centerline = self.dlg.cbInputVectorCenterline.currentLayer()
+        polygon = self.dlg.cbInputROI.currentLayer()
+        
+        if points == None or centerline == None or polygon == None:
+           self.plugin_message_bar.pushMessage("Warning", "All input fields must have a layer selected.", level=Qgis.Warning)
+        else: 
+            self.run()
+
+
+    def onCancel(self):
+        """
+        Called when the Cancel button is clicked.
+        Closes the plugin window.
+        """
+        self.clearMessageBar()
+        self.dlg.close()
 
 
     def oncbInputPointLayerWidget_layerChanged(self):
@@ -175,8 +211,21 @@ class BathyFlowDEM:
         current_point_layer = self.dlg.cbInputPointLayer.currentLayer()
         self.dlg.cbAttField.setLayer(current_point_layer)
         self.dlg.cbAttField.setFilters(QgsFieldProxyModel.Numeric)
-        print("Point layer changed method.")
 
+
+    def oncbTempLayer_stateChanged(self):
+        """Slot method called when cbTempLayer checkbox's state changes. (click)"""
+        print('State Changed.')
+
+        cbTempLayer = self.dlg.cbTempLayer
+
+        if cbTempLayer.isChecked() == True: 
+            self.dlg.saveDirWidget.setEnabled(False)
+            self.dlg.cbOpenOutputFile.setEnabled(False)
+        else: 
+            self.dlg.saveDirWidget.setEnabled(True)
+            self.dlg.cbOpenOutputFile.setEnabled(True)
+            
 
 
 
@@ -386,18 +435,18 @@ class BathyFlowDEM:
         self.dlg.cbInputPointLayer.setFilters(QgsMapLayerProxyModel.PointLayer)
         self.dlg.cbInputVectorCenterline.setFilters(QgsMapLayerProxyModel.LineLayer)
 
-        # PLaceholders for output layer name
-        self.dlg.leOutputName.setPlaceholderText("bathyflowDEM_output")
 
-        # show the dialog
+        # Show the dialog
         self.dlg.show()
 
         # Run the dialog event loop
         result = self.dlg.exec_()
 
-        # Populate attribute field with selected point layer - and update is changed
+        # Populate attribute field with selected point layer - and update if changed
         self.oncbInputPointLayerWidget_layerChanged()
-        
+
+        # 
+        self.oncbTempLayer_stateChanged()
 
 
         # See if OK was pressed
@@ -407,6 +456,8 @@ class BathyFlowDEM:
             ########################################################################
             ## Get selected user's values INPUTS and OUTPUT choice/destination
             ########################################################################
+
+            
             
             # Get user input layers
             point_layer = self.dlg.cbInputPointLayer.currentLayer()
@@ -422,26 +473,15 @@ class BathyFlowDEM:
             max_distance = self.dlg.sbMaxDist.value()
             show_output_checked = self.dlg.cbOpenOutputFile.isChecked()
 
-            # Get user output path 
-            user_output_dir_path = self.dlg.saveDirWidget.filePath() # might be empty
-            print("User dir " + str(user_output_dir_path))
-            user_output_layer_name = self.dlg.leOutputName.displayText() # might be empty
-            print("User layer name " + str(user_output_layer_name))
+            # Check user inputs' validity
+            self.check_data_inputs(point_layer, centerline_layer, boundary_layer)
 
-            # Define user output path. If no directory selected, layer name is ditched. Otherwise build full path.
-            if not user_output_dir_path:
-                pass
-            else:
-                if not user_output_layer_name:
-                    output_path = user_output_dir_path + "\\bathyflowdem_output.shp"
-                else:
-                    output_path = user_output_dir_path + "\\" + user_output_layer_name + ".shp"
 
         
 
 
             
-            ########################################################################
+            """ ########################################################################
             ## Create new points layer with X, Y, S and N coordinates and flow direction
             ########################################################################       
 
@@ -495,7 +535,9 @@ class BathyFlowDEM:
                     # Add values to the layer
                     point_layer_xy_sn.changeAttributeValue(f.id(), 4, s_coordinate)
                     point_layer_xy_sn.changeAttributeValue(f.id(), 5, n_coordinate)   
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 6, flow_direction)            
+                    point_layer_xy_sn.changeAttributeValue(f.id(), 6, flow_direction)      
+
+            progressBar.setValue(10)      
 
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_xy_sn)
@@ -553,7 +595,7 @@ class BathyFlowDEM:
                     sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
                     sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
 
-
+            progressBar.setValue(20)
             
             ########################################################################
             ## interpolate value for each point
@@ -571,6 +613,8 @@ class BathyFlowDEM:
                                                     max_distance=max_distance)
 
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
+            
+            progressBar.setValue(80)
 
             QgsProject.instance().addMapLayer(sampled_points)
 
@@ -599,11 +643,7 @@ class BathyFlowDEM:
             QgsProject.instance().addMapLayer(final_raster)
 
             #Debugging
-            stats = final_raster.dataProvider().bandStatistics(1, QgsRasterBandStats.All)
-            min = stats.minimumValue
-            max = stats.maximumValue
-            print(min, max)
-
+            progressBar.setValue(90) """
 
 
 
@@ -613,26 +653,26 @@ class BathyFlowDEM:
 
 
             """Tests and errors"""
-            # self.check_data_inputs(point_layer, centerline_layer, boundary_layer)
+            
 
 
-            if show_output_checked == True:
+"""             if show_output_checked == True:
 
-                # No output dir selected, no layer name but load layer checked
+                # No youtput dir selected, no layer name but load layer checked
                 if not user_output_dir_path and not user_output_layer_name: 
                     print("Load layer to map checked, no dir and not output name.")
 
-                    """ new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
+                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
                                                                                   'OUTPUT':'TEMPORARY_OUTPUT', 
-                                                                                  'NAME':'bathyflowDEM_output'})"""
+                                                                                  'NAME':'bathyflowDEM_output'})
                     
                 # if there is a dir path, output path was defined earlier
                 elif not user_output_dir_path:
                     print("Load layer to map checked, no dir path selected so only temp.")
-                    """ new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
+                    new_layer = processing.runAndLoadResults("native:centroids", {'INPUT':boundary_layer,
                                                                                   'ALL_PARTS':False,
-                                                                                  'OUTPUT': output_path}) """
+                                                                                  'OUTPUT': output_path})
 
                 else:
                     print("Load layer to map checked, dir selected so load in project + export with output path.")
@@ -648,10 +688,10 @@ class BathyFlowDEM:
 
                 else: # if there is a dir path, output path was defined earlier
                     print("Box to laod layer not checked, dir path selected.")
-                    """ new_layer = processing.run("native:centroids", {'INPUT':boundary_layer,
+                    new_layer = processing.run("native:centroids", {'INPUT':boundary_layer,
                                                                     'ALL_PARTS':False,
-                                                                    'OUTPUT': output_path}) """
-                    self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success)
+                                                                    'OUTPUT': output_path})
+                    self.iface.messageBar().pushMessage("BathyFlowDEM", "Finished. New layer saved at " + output_path, level=Qgis.Success) """
       
             
 
