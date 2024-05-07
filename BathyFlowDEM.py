@@ -28,7 +28,7 @@ from qgis.PyQt.QtWidgets import QAction
 
 import math
 
-from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsFeatureRequest, QgsRasterLayer, QgsRasterBandStats
+from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsFeatureRequest, QgsRasterLayer, QgsAggregateCalculator
 from qgis.utils import iface
 from qgis.core.additions.edit import edit
 from qgis.gui import QgsMessageBar
@@ -374,6 +374,7 @@ class BathyFlowDEM:
         
         created_raster = processing.run("native:createconstantrasterlayer", create_raster_parars)
         new_raster = QgsRasterLayer(created_raster['OUTPUT'], 'Grid_empty')
+        QgsProject.instance().addMapLayer(new_raster)
 
 
         # Sample one point per pixel
@@ -384,7 +385,7 @@ class BathyFlowDEM:
         
         sampled_points = processing.run("native:pixelstopoints", pixelpoint_params)['OUTPUT']
 
-        return sampled_points
+        return new_raster, sampled_points
 
 
 
@@ -454,6 +455,7 @@ class BathyFlowDEM:
 
 
 
+
     def run(self):
         """Main method"""
 
@@ -487,8 +489,7 @@ class BathyFlowDEM:
             ## Get selected user's values INPUTS and OUTPUT choice/destination
             ########################################################################
 
-
-            # Get user input layers
+            # Get user input layers an
             point_layer = self.dlg.cbInputPointLayer.currentLayer()
             centerline_layer = self.dlg.cbInputVectorCenterline.currentLayer()
             boundary_layer = self.dlg.cbInputROI.currentLayer()
@@ -500,6 +501,16 @@ class BathyFlowDEM:
             cell_size = self.dlg.sbCellSize.value()
             anisotropy_value = self.dlg.sbAnisotropyValue.value()
             max_distance = self.dlg.sbMaxDist.value()
+
+            # Get user choice for saving final layer
+            if self.dlg.cbTempLayer.isChecked():      
+                saving_option = 'Save to temporary layer'
+            else:
+                if self.dlg.cbOpenOutputFile.isChecked():
+                    saving_option = 'Save to folder and load'
+                    rasterize_raster = processing.runAndLoadResults("gdal:rasterize", params_save)
+                else: 
+                    saving_option = 'Save to folder only'
 
 
         
@@ -572,7 +583,7 @@ class BathyFlowDEM:
             ## Prepare new layers for interpolation
             ########################################################################   
 
-            sampled_points = self.create_sample_points(point_layer, cell_size, boundary_layer)
+            raster_ROI_extent, sampled_points = self.create_sample_points(point_layer, cell_size, boundary_layer)
 
             # Prepare fields for the sampled_points layer
             sp_caps = sampled_points.dataProvider().capabilities()
@@ -641,6 +652,11 @@ class BathyFlowDEM:
 
 
             
+         
+
+
+
+
             ########################################################################
             ## Add interpolated values to raster cells 
             ########################################################################   
@@ -654,11 +670,9 @@ class BathyFlowDEM:
                 'UNITS':1,
                 'WIDTH': cell_size,
                 'HEIGHT': cell_size,
-                'EXTENT': boundary_layer.extent(),
+                'EXTENT': raster_ROI_extent.extent(),
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
-
-            
 
             folder_path = self.dlg.saveDirWidget.filePath()
             DATANAME = 'Interpolated raster'
@@ -674,17 +688,22 @@ class BathyFlowDEM:
                 'UNITS':1,
                 'WIDTH': cell_size,
                 'HEIGHT': cell_size,
-                'EXTENT': boundary_layer.extent(),
+                'EXTENT': raster_ROI_extent.extent(),
                 'OUTPUT': full_path
             }
 
-            if self.dlg.cbTempLayer.isChecked():      
+            if saving_option == 'Save to temporary layer':      
                 rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
                 final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
                 QgsProject.instance().addMapLayer(final_raster)
             else:
-                if self.dlg.cbOpenOutputFile.isChecked():
-                    rasterize_raster = processing.runAndLoadResults("gdal:rasterize", params_save)
-                else: 
-                    rasterize_raster = processing.run("gdal:rasterize", params_save)
+                if saving_option == 'Save to folder and load':
+                    rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
+                    final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
+                    QgsProject.instance().addMapLayer(final_raster)
+                elif saving_option == 'Save to folder only':
+                    rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
+                    final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
                     
+
+
