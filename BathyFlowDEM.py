@@ -361,21 +361,25 @@ class BathyFlowDEM:
             pixel_size (Int): user defined pixel size
 
         Returns:
+            QgsRasterLayer with the new raster
             QgsVectorLayer with the sampled points
         '''
 
-
         # Create raster alyer
-        create_raster_parars = {'EXTENT': ROI.extent(),
+        create_raster_params = {'EXTENT': ROI.extent(),
                                 'TARGET_CRS': survey_points_layer.crs(),
                                 'PIXEL_SIZE': pixel_size,
                                 'OUTPUT_TYPE': 5,
                                 'OUTPUT': 'TEMPORARY_OUTPUT'}
         
-        created_raster = processing.run("native:createconstantrasterlayer", create_raster_parars)
+        created_raster = processing.run("native:createconstantrasterlayer", create_raster_params)
         new_raster = QgsRasterLayer(created_raster['OUTPUT'], 'Grid_empty')
-        QgsProject.instance().addMapLayer(new_raster)
+        new_raster.setName("Grid raster empty")
+        provider = new_raster.dataProvider()
+        provider.setNoDataValue(1, 0)
+        new_raster.triggerRepaint()
 
+        QgsProject.instance().addMapLayer(new_raster)
 
         # Sample one point per pixel
         pixelpoint_params = {'INPUT_RASTER': new_raster,
@@ -387,7 +391,16 @@ class BathyFlowDEM:
 
         return new_raster, sampled_points
 
+    def final_raster_processing(self, raster):
+        """
+        """
 
+        final_raster = QgsRasterLayer(raster, 'Interpolated raster')
+        provider = final_raster.dataProvider()
+        provider.setNoDataValue(1, 0)
+        final_raster.triggerRepaint()
+        
+        return final_raster
 
 
 
@@ -435,18 +448,47 @@ class BathyFlowDEM:
                 return value
                         
         if not distances:
-            return None
+            return 0
         else:
             for distance, value, in distances:
                 weight = 1 / distance
                 sum_weights += weight
                 sum_weighted_values += weight * value
             
-            if sum_weights == 0:
-                return None 
-            
             return sum_weighted_values / sum_weights
               
+
+
+
+
+
+    
+    ########################################################################
+    ## Model validation  
+    ########################################################################
+
+
+    def rmse(self, actual_values, predicted_values):
+        
+        difference = [pred - act for pred, act in zip(predicted_values, actual_values)]
+        print(f'Difference: {difference}')
+
+        squared_difference = [diff ** 2 for diff in difference]
+        print(f'Squared difference: {squared_difference}')
+
+        mean_squared_difference = sum(squared_difference) / len(squared_difference)
+        print(f'Mean squared difference: {mean_squared_difference}')
+        rmse = math.sqrt(mean_squared_difference)
+        
+        return rmse
+
+
+
+
+
+
+
+
 
 
 
@@ -629,10 +671,15 @@ class BathyFlowDEM:
                     sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
                     sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
 
+
+
+
             
             ########################################################################
             ## interpolate value for each point
-            ########################################################################   
+            ########################################################################  
+
+            interpolated_values_list = [] 
                     
             with edit(sampled_points):
                 for f in sampled_points.getFeatures():
@@ -645,9 +692,10 @@ class BathyFlowDEM:
                                                     anisotropy_ratio=anisotropy_value, 
                                                     max_distance=max_distance)
 
+                    interpolated_values_list.append(interpolated_value)
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
-
+            print(interpolated_values_list)
             QgsProject.instance().addMapLayer(sampled_points)
 
 
@@ -695,15 +743,51 @@ class BathyFlowDEM:
             if saving_option == 'Save to temporary layer':      
                 rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
                 final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
+                provider = final_raster.dataProvider()
+                provider.setNoDataValue(1, 0)
+                final_raster.triggerRepaint()
                 QgsProject.instance().addMapLayer(final_raster)
+
             else:
                 if saving_option == 'Save to folder and load':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
-                    final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
+                    final_raster = self.final_raster_processing(rasterize_raster)
                     QgsProject.instance().addMapLayer(final_raster)
+
                 elif saving_option == 'Save to folder only':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
                     final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
                     
 
 
+
+            ########################################################################
+            ## For each input point in the ROI, calculate the difference between actual point and raster cell
+            ########################################################################   
+
+            if self.dlg.cbModelEvaluation.isChecked():
+
+                # Select only points used for interpolation
+                clip_params = {
+                    'INPUT': point_layer, 
+                    'OVERLAY': boundary_layer,
+                    'OUTPUT': 'TEMPORARY_OUTPUT'
+                }
+                used_points = processing.run("native:clip", clip_params)['OUTPUT']
+
+                sample_params = {
+                    'INPUT': used_points,
+                    'RASTERCOPY': final_raster,
+                    'COLUMN_PREFIX': 'SAMPLE_',
+                    'OUTPUT': 'TEMPORARY_OUTPUT'
+                }
+
+                used_points_with_sampled_raster = processing.run("native:rastersampling", sample_params)['OUTPUT']
+                used_points_with_sampled_raster.setName('Difference')
+                QgsProject.instance().addMapLayer(used_points_with_sampled_raster)
+
+                actual_values = used_points_with_sampled_raster.aggregate(QgsAggregateCalculator.ArrayAggregate, field_to_interpolate)[0]
+                predicted_values = used_points_with_sampled_raster.aggregate(QgsAggregateCalculator.ArrayAggregate, 'SAMPLE_1')[0]
+
+                rmse =self.rmse(actual_values, predicted_values,)
+                print(rmse)
