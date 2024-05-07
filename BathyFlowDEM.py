@@ -144,6 +144,8 @@ class BathyFlowDEM:
             text=self.tr(u'Create DEM'),
             callback=self.run,
             parent=self.iface.mainWindow())
+        
+        self.dlg.boxRMSEresults.hide()
 
         # Connect dialog signals and slots for user interaction with GUI
         self.dlg.cbInputPointLayer.layerChanged.connect(self.oncbInputPointLayerWidget_layerChanged)
@@ -220,6 +222,8 @@ class BathyFlowDEM:
         Called when the OK button is clicked. 
         Tests validity of the data and run the main function run()
         """
+
+        self.dlg.boxRMSEresults.hide()
 
         # Checks validity of user's inputs
         if self.allFieldsHaveLayer() == False:
@@ -348,7 +352,7 @@ class BathyFlowDEM:
 
 
     ########################################################################
-    ## Create sampled points
+    ## Functions to create and process new layers
     ########################################################################
 
     def create_sample_points(self, survey_points_layer, pixel_size, ROI):
@@ -374,10 +378,6 @@ class BathyFlowDEM:
         
         created_raster = processing.run("native:createconstantrasterlayer", create_raster_params)
         new_raster = QgsRasterLayer(created_raster['OUTPUT'], 'Grid_empty')
-        new_raster.setName("Grid raster empty")
-        provider = new_raster.dataProvider()
-        provider.setNoDataValue(1, 0)
-        new_raster.triggerRepaint()
 
         QgsProject.instance().addMapLayer(new_raster)
 
@@ -391,16 +391,26 @@ class BathyFlowDEM:
 
         return new_raster, sampled_points
 
-    def final_raster_processing(self, raster):
+
+    def layer_to_raster_and_nodata(self, raster, nodata):
         """
+        Converts the output of a raster algorithm and adds nodata value to its band 1
+
+        Args:
+            raster (QgsRasterLayer)
+            nodata (int/float): to add to the nodata values
+
+        Returns:
+            raster (QgsRasterLayer); named Interpolated raster with nodata set
         """
 
         final_raster = QgsRasterLayer(raster, 'Interpolated raster')
         provider = final_raster.dataProvider()
-        provider.setNoDataValue(1, 0)
+        provider.setNoDataValue(1, nodata)
         final_raster.triggerRepaint()
         
         return final_raster
+
 
 
 
@@ -423,7 +433,7 @@ class BathyFlowDEM:
             anisotropy_ratio (float): Factor by which distances across the flow (N direction) are scaled.
 
         Returns:
-            float: Interpolated value at the target location or -9999 if no data
+            float: Interpolated value at the target location or 0 if no data
         """
         sum_weighted_values = 0
         sum_weights = 0
@@ -470,13 +480,11 @@ class BathyFlowDEM:
 
     def rmse(self, actual_values, predicted_values):
         
-        difference = [pred - act for pred, act in zip(predicted_values, actual_values)]
-        print(f'Difference: {difference}')
+        differences = [pred - act for pred, act in zip(predicted_values, actual_values)]
 
-        squared_difference = [diff ** 2 for diff in difference]
-        print(f'Squared difference: {squared_difference}')
+        squared_differences = [diff ** 2 for diff in differences]
 
-        mean_squared_difference = sum(squared_difference) / len(squared_difference)
+        mean_squared_difference = sum(squared_differences) / len(squared_differences)
         print(f'Mean squared difference: {mean_squared_difference}')
         rmse = math.sqrt(mean_squared_difference)
         
@@ -550,7 +558,6 @@ class BathyFlowDEM:
             else:
                 if self.dlg.cbOpenOutputFile.isChecked():
                     saving_option = 'Save to folder and load'
-                    rasterize_raster = processing.runAndLoadResults("gdal:rasterize", params_save)
                 else: 
                     saving_option = 'Save to folder only'
 
@@ -678,8 +685,6 @@ class BathyFlowDEM:
             ########################################################################
             ## interpolate value for each point
             ########################################################################  
-
-            interpolated_values_list = [] 
                     
             with edit(sampled_points):
                 for f in sampled_points.getFeatures():
@@ -692,10 +697,8 @@ class BathyFlowDEM:
                                                     anisotropy_ratio=anisotropy_value, 
                                                     max_distance=max_distance)
 
-                    interpolated_values_list.append(interpolated_value)
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
-            print(interpolated_values_list)
             QgsProject.instance().addMapLayer(sampled_points)
 
 
@@ -709,6 +712,12 @@ class BathyFlowDEM:
             ## Add interpolated values to raster cells 
             ########################################################################   
 
+            # Create full path to save final raster
+            folder_path = self.dlg.saveDirWidget.filePath()
+            dataname = 'Interpolated raster'
+            full_path = os.path.join(folder_path, dataname + '.tif' )
+            
+            # Parameters is temporary layer 
             params = {
                 'INPUT': sampled_points,
                 'FIELD': 'Interpolated',
@@ -722,11 +731,7 @@ class BathyFlowDEM:
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
 
-            folder_path = self.dlg.saveDirWidget.filePath()
-            DATANAME = 'Interpolated raster'
-            full_path = os.path.join(folder_path, DATANAME + '.tif' )
-            print(full_path)
-
+            # Parameters of save to folder
             params_save = {
                 'INPUT': sampled_points,
                 'FIELD': 'Interpolated',
@@ -740,23 +745,21 @@ class BathyFlowDEM:
                 'OUTPUT': full_path
             }
 
-            if saving_option == 'Save to temporary layer':      
+            if saving_option == 'Save to temporary layer':    
+
                 rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
-                final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
-                provider = final_raster.dataProvider()
-                provider.setNoDataValue(1, 0)
-                final_raster.triggerRepaint()
+                final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                 QgsProject.instance().addMapLayer(final_raster)
 
             else:
                 if saving_option == 'Save to folder and load':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
-                    final_raster = self.final_raster_processing(rasterize_raster)
+                    final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                     QgsProject.instance().addMapLayer(final_raster)
 
                 elif saving_option == 'Save to folder only':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
-                    final_raster = QgsRasterLayer(rasterize_raster, 'Interpolated raster')
+                    final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                     
 
 
@@ -790,4 +793,7 @@ class BathyFlowDEM:
                 predicted_values = used_points_with_sampled_raster.aggregate(QgsAggregateCalculator.ArrayAggregate, 'SAMPLE_1')[0]
 
                 rmse =self.rmse(actual_values, predicted_values,)
-                print(rmse)
+                
+                self.dlg.boxRMSEresults.show()
+                self.dlg.labelRMSE.setText(f"Final RMSE: {rmse}")
+            
