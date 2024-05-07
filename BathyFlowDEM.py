@@ -369,7 +369,7 @@ class BathyFlowDEM:
             QgsVectorLayer with the sampled points
         '''
 
-        # Create raster alyer
+        # Create raster layer
         create_raster_params = {'EXTENT': ROI.extent(),
                                 'TARGET_CRS': survey_points_layer.crs(),
                                 'PIXEL_SIZE': pixel_size,
@@ -379,7 +379,6 @@ class BathyFlowDEM:
         created_raster = processing.run("native:createconstantrasterlayer", create_raster_params)
         new_raster = QgsRasterLayer(created_raster['OUTPUT'], 'Grid_empty')
 
-        QgsProject.instance().addMapLayer(new_raster)
 
         # Sample one point per pixel
         pixelpoint_params = {'INPUT_RASTER': new_raster,
@@ -572,13 +571,13 @@ class BathyFlowDEM:
 
             # Clone input shp point layer: comes with all attributes: id, X and Y
             point_layer.selectAll()
-            point_layer_xy_sn = processing.run("native:saveselectedfeatures", {'INPUT': point_layer,
+            point_layer_SN = processing.run("native:saveselectedfeatures", {'INPUT': point_layer,
                                                                                'OUTPUT': 'TEMPORARY_OUTPUT'})['OUTPUT']
             point_layer.removeSelection()
-            point_layer_xy_sn.setName('points_xy_and_sn')
+            point_layer_SN.setName('points_xy_and_sn')
             
             # To enable check of a particular capability 
-            pl_caps = point_layer_xy_sn.dataProvider().capabilities()
+            pl_caps = point_layer_SN.dataProvider().capabilities()
 
             # Create list of new fields
             pl_new_fields = [
@@ -589,20 +588,20 @@ class BathyFlowDEM:
 
             # Add fields to layer and update layer
             if pl_caps & QgsVectorDataProvider.AddAttributes:
-                 point_layer_xy_sn.dataProvider().addAttributes(pl_new_fields)
-            point_layer_xy_sn.updateFields()
+                 point_layer_SN.dataProvider().addAttributes(pl_new_fields)
+            point_layer_SN.updateFields()
 
 
             # Calculate S, N and flow direction
-            shortest_dist_point_centerline_layer = self.shortest_dist(point_layer_xy_sn, centerline_layer)
-            infos_dict = self.get_s_and_flow_direction(point_layer_xy_sn, centerline_layer)
+            shortest_dist_point_centerline_layer = self.shortest_dist(point_layer_SN, centerline_layer)
+            infos_dict = self.get_s_and_flow_direction(point_layer_SN, centerline_layer)
 
 
             # Populate the new layer with S, N and FlowDir values
-            with edit(point_layer_xy_sn):
+            with edit(point_layer_SN):
 
 
-                for f in point_layer_xy_sn.getFeatures():
+                for f in point_layer_SN.getFeatures():
 
                     # Retrieve n, calculated by the shortest_distance algorithm
                     iterator = shortest_dist_point_centerline_layer.getFeatures(QgsFeatureRequest().setFilterFid(f.id()))
@@ -618,12 +617,12 @@ class BathyFlowDEM:
                     s_coordinate = infos_dict[f.id()]['distance_along_line']
 
                     # Add values to the layer
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 1, s_coordinate)
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 2, n_coordinate)   
-                    point_layer_xy_sn.changeAttributeValue(f.id(), 3, flow_direction)      
+                    point_layer_SN.changeAttributeValue(f.id(), 1, s_coordinate)
+                    point_layer_SN.changeAttributeValue(f.id(), 2, n_coordinate)   
+                    point_layer_SN.changeAttributeValue(f.id(), 3, flow_direction)      
 
             # Add new layer to project
-            QgsProject.instance().addMapLayer(point_layer_xy_sn)
+            QgsProject.instance().addMapLayer(point_layer_SN)
 
 
 
@@ -693,7 +692,7 @@ class BathyFlowDEM:
                     interpolated_value = self.eidw(target_s=f['S'], 
                                                     target_n=f['N'], 
                                                     value_field=field_to_interpolate, 
-                                                    point_layer=point_layer_xy_sn, 
+                                                    point_layer=point_layer_SN, 
                                                     anisotropy_ratio=anisotropy_value, 
                                                     max_distance=max_distance)
 
@@ -770,6 +769,9 @@ class BathyFlowDEM:
 
 
 
+
+
+
             ########################################################################
             ## For each input point in the ROI, calculate the difference between actual point and raster cell
             ########################################################################   
@@ -792,7 +794,8 @@ class BathyFlowDEM:
                 }
 
                 used_points_with_sampled_raster = processing.run("native:rastersampling", sample_params)['OUTPUT']
-                used_points_with_sampled_raster.setName('Difference')
+                used_points_with_sampled_raster.setName('Data validation - differences')
+
                 QgsProject.instance().addMapLayer(used_points_with_sampled_raster)
 
                 actual_values = used_points_with_sampled_raster.aggregate(QgsAggregateCalculator.ArrayAggregate, field_to_interpolate)[0]
