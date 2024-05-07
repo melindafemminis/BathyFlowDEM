@@ -751,15 +751,21 @@ class BathyFlowDEM:
                 final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                 QgsProject.instance().addMapLayer(final_raster)
 
+                self.plugin_message_bar.pushMessage("Success", "File loaded to project.", level=Qgis.Success)
+
             else:
                 if saving_option == 'Save to folder and load':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
                     final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                     QgsProject.instance().addMapLayer(final_raster)
 
+                    self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
+
                 elif saving_option == 'Save to folder only':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
                     final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
+
+                    self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
                     
 
 
