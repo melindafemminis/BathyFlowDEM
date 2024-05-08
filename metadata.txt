@@ -10,9 +10,9 @@ version=0.1
 author=Melinda Femminis
 email=femminis.mda@gmail.com
 
-about=Poduce digital elevation models from bathymetry data, utilizing flow-oriented curvilinear coordinate system and anisotropic interpolation method.
+about=Produce digital elevation models from bathymetry data, utilizing flow-oriented curvilinear coordinate system and anisotropic interpolation method.
 about=BathyFlowDEM uses flow-oriented curvilinear coordinate system and anisotropic Inverse Distance Weighting interpolation to create a digital elevation model from a set of bathymetry data points and a user-defined river centerline. The anisotropy ratio is set by the user.
-tracker=http://bugs
+tracker=https://github.com/melindafemminis/BathyFlowDEM/tree/master
 repository=https://github.com/melindafemminis/BathyFlowDEM
 # End of mandatory metadata
 
@@ -25,7 +25,7 @@ hasProcessingProvider=no
 # Tags are comma separated with spaces allowed
 tags=python, raster, DEM, bathymetry, interpolation, anisotropy, IDW
 
-homepage=http://homepage
+homepage=https://github.com/melindafemminis/BathyFlowDEM/tree/master
 category=Plugins
 icon=icon.png
 # experimental flag
