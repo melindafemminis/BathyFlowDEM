@@ -1,13 +1,12 @@
 ### BathyFlowDEM  Plugin for QGIS
 
+<p align="center">
+    <img src="img/icon.png">  
+</p>
+
 <div style="text-align: center;">
-
-![logo](img/icon.png)
-
-# BathyFlowDEM
-
-This repository contains the code for the BathyFlowDEM, a QGIS plugin that creates digital elevation models from bathymetric data points using flow-oriented curvilinear coordinate system and anisotropic inverse distance weighting interpolation. 
-
+    <h1>BathyFlowDEM</h1>
+    This repository contains the code for the BathyFlowDEM, a QGIS plugin that creates digital elevation models from bathymetric data points using flow-oriented curvilinear coordinate system and anisotropic inverse distance weighting interpolation. 
 </div>
 
 ## Introduction
