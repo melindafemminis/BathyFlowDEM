@@ -5,15 +5,15 @@
 [general]
 name=BathyFlowDEM
 qgisMinimumVersion=3.0
-description=Interpolation plugin for bathymetric data
+description=Anisotropi plugin for bathymetric data
 version=0.1
 author=Melinda Femminis
-email=Contact
+email=femminis.mda@gmail.com
 
-about=BathyFlowDEM produces digital elevation models from single-beam echosounder bathymetry data, utilizing flow-oriented curvilinear coordinate system and anisotropic interpolation method.
-
+about=Poduce digital elevation models from bathymetry data, utilizing flow-oriented curvilinear coordinate system and anisotropic interpolation method.
+about=BathyFlowDEM uses flow-oriented curvilinear coordinate system and anisotropic Inverse Distance Weighting interpolation to create a digital elevation model from a set of bathymetry data points and a user-defined river centerline. The anisotropy ratio is set by the user.
 tracker=http://bugs
-repository=http://repo
+repository=https://github.com/melindafemminis/BathyFlowDEM
 # End of mandatory metadata
 
 # Recommended items:
@@ -23,7 +23,7 @@ hasProcessingProvider=no
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python
+tags=python, raster, DEM, bathymetry, interpolation, anisotropy, IDW
 
 homepage=http://homepage
 category=Plugins
@@ -36,11 +36,11 @@ deprecated=False
 
 # Since QGIS 3.8, a comma separated list of plugins to be installed
 # (or upgraded) can be specified.
-# Check the documentation for more information.
+# Check the documentation for more information
 # plugin_dependencies=
 
 Category of the plugin: Raster, Vector, Database or Web
-# category=
+# category=Raster
 
 # If the plugin can run on QGIS Server.
 server=False
