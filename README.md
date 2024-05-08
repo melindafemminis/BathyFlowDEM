@@ -10,9 +10,9 @@
 
 ## Introduction
 
-| Main tab              | Output tab              | Help tab              |
-| ---------------------- | ---------------------- | ---------------------- |
-| ![main tab](img/main_dialog.png) | ![output tab](img/output_dialog.png) | ![help tab](img/help_dialog.png) | 
+| Main tab              | Help tab              |
+| ---------------------- |  ---------------------- |
+| ![main tab](img/main_dialog.png) | ![help tab](img/help_dialog.png) | 
 
 ## Functionalities
 
