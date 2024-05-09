@@ -10,13 +10,31 @@
 
 ## Introduction
 
+The goal of this project is to add an interpolation method with anisotropy to QGIS. With BathyFlowDEM, the user can decide the anisotropy ratio the best fit the data. While it was developped with bathymetric data in mind, it can be used with any point data with an attribute to interpolate. 
+
 | Main tab              | Help tab              |
 | ---------------------- |  ---------------------- |
 | ![main tab](img/main_dialog.png) | ![help tab](img/help_dialog.png) | 
 
+The plugin main window is split in 3 parts: 
+
+- **Input data**: choose the layers to be used for interpolation 
+- **Parameters**: define anisotropy ratio, maximum search distance for the IDW algorithm and the final raster cell size. The *Calculate differences and RMSE* checkbox calculate RMSE and provide an extra layer containing the points used for interpolation with their actual value, the final raster value at this point and the difference between them.
+- **Interpolated layer**: option to save results to folder or create a temporary layer.
+
+The *Help* tab provide some more information about the functionnalities of the plugin and the input and output layers. 
+
 ## Functionalities
 
-...
+At the moment, the plugin only has one interpolation method available
+
+
+## Constaints and limitations
+
+At the moment, the plugin only has one interpolation method available.
+
+Applicable for single channel rivers, not braided rivers.
+
 
 ## Tools and requirements
 
