@@ -604,6 +604,12 @@ class BathyFlowDEM:
             shortest_dist_point_centerline_layer = self.shortest_dist(point_layer_SN, centerline_layer)
             infos_dict = self.get_s_and_flow_direction(point_layer_SN, centerline_layer)
 
+            # Get field's id from name
+            pointSN_fields = point_layer_SN.fields()
+            s_index = pointSN_fields.indexFromName("S")
+            n_index = pointSN_fields.indexFromName("N")
+            flowdir_index = pointSN_fields.indexFromName("FlowDir")
+
 
             # Populate the new layer with S, N and FlowDir values
             with edit(point_layer_SN):
@@ -625,9 +631,9 @@ class BathyFlowDEM:
                     s_coordinate = infos_dict[f.id()]['distance_along_line']
 
                     # Add values to the layer
-                    point_layer_SN.changeAttributeValue(f.id(), 1, s_coordinate)
-                    point_layer_SN.changeAttributeValue(f.id(), 2, n_coordinate)   
-                    point_layer_SN.changeAttributeValue(f.id(), 3, flow_direction)      
+                    point_layer_SN.changeAttributeValue(f.id(), s_index, s_coordinate)
+                    point_layer_SN.changeAttributeValue(f.id(), n_index, n_coordinate)   
+                    point_layer_SN.changeAttributeValue(f.id(), flowdir_index, flow_direction)      
 
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_SN)
@@ -665,6 +671,11 @@ class BathyFlowDEM:
             shortest_dist_point_centerline_layer_sampled = self.shortest_dist(sampled_points, centerline_layer)
             infos_dict_sampled = self.get_s_and_flow_direction(sampled_points, centerline_layer)
 
+            # Get field's id from name
+            sp_all_fields = sampled_points.fields()
+            s_index = sp_all_fields.indexFromName("S")
+            n_index = sp_all_fields.indexFromName("N")
+
             # Populate the new layer with S, N and FlowDir values
             with edit(sampled_points):
 
@@ -681,9 +692,13 @@ class BathyFlowDEM:
 
                     s_coordinate = infos_dict_sampled[f.id()]['distance_along_line']
 
+
                     # Add values to the layer
-                    sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
-                    sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
+                    sampled_points.changeAttributeValue(f.id(), s_index, s_coordinate) 
+                    sampled_points.changeAttributeValue(f.id(), n_index, n_coordinate)
+
+
+
 
 
 
@@ -706,11 +721,10 @@ class BathyFlowDEM:
 
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
-            QgsProject.instance().addMapLayer(sampled_points)
-
 
             
-         
+            
+
 
 
 
