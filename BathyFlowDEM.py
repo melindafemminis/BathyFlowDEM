@@ -445,7 +445,15 @@ class BathyFlowDEM:
             
             # Calculate distances in the S and N directions
             ds = s - target_s
-            dn = (n - target_n) * anisotropy_ratio
+
+            # Same to n but take into account negative numbers
+            if target_n and n >= 0:
+                dn1 = abs(target_n - n)
+            elif target_n and n < 0: 
+                dn1 = abs(target_n - n)
+            else: 
+                dn1 = abs(target_n) + abs(n)
+            dn = dn1 * anisotropy_ratio
 
             # Calculate the anisotropic distance by modifying it on the N axis
             distance = (ds**2 + dn**2) ** 0.5
