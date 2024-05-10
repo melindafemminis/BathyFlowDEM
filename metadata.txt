@@ -5,12 +5,10 @@
 [general]
 name=BathyFlowDEM
 qgisMinimumVersion=3.0
-description=Anisotropi plugin for bathymetric data
+description=Anisotropic interpolation for bathymetric data
 version=0.1
 author=Melinda Femminis
 email=femminis.mda@gmail.com
-
-about=Produce digital elevation models from bathymetry data, utilizing flow-oriented curvilinear coordinate system and anisotropic interpolation method.
 about=BathyFlowDEM uses flow-oriented curvilinear coordinate system and anisotropic Inverse Distance Weighting interpolation to create a digital elevation model from a set of bathymetry data points and a user-defined river centerline. The anisotropy ratio is set by the user.
 tracker=https://github.com/melindafemminis/BathyFlowDEM/tree/master
 repository=https://github.com/melindafemminis/BathyFlowDEM

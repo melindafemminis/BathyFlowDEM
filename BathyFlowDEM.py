@@ -292,6 +292,7 @@ class BathyFlowDEM:
         # Initialize a dictionary to store the values
         results_dir = {}
 
+        # In case more than one line, will get the first one
         line_feature = next(centerline.getFeatures())
         line_geom = line_feature.geometry()
 
@@ -339,11 +340,46 @@ class BathyFlowDEM:
                             'METHOD': 0,
                             'NEIGHBORS': 1,
                             'END_OFFSET': 0,
+                            'DISTANCE': None,
                             'OUTPUT': 'TEMPORARY_OUTPUT'}
 
         result_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
+        
+            
+        # Add line length to distance field if not there already 
+        if result_layer.isValid():
+            with edit(result_layer):
+                for feature in result_layer.getFeatures():
+                    if feature['distance'] is None:
+                        feature['distance'] = feature.geometry().length()
+                        result_layer.updateFeature(feature)
+                print("Distance field populated with line lengths.")
+        else:
+            self.plugin_message_bar.pushMessage("Warning", f"Error with shortest_dist().", level=Qgis.Warning)
+            raise ValueError("Error: Resulting layer from shortest line between features is not valid.")
 
         return result_layer
+    
+
+    def retrieve_n_coordinate(self, f, shortest_dist_layer, info_dict):
+
+        # Retrieve n, calculated by the shortest_distance algorithm
+        feature = shortest_dist_layer.getFeature(f.id())
+
+        if feature.isValid():
+            try:
+                # Change the sign to negative according to which side of the centerline the point it located
+                n_coordinate = feature['distance']
+                if info_dict[f.id()]['side'] == -1:
+                    n_coordinate *= -1
+            except (ValueError, TypeError) as e:
+                print(f"Error processing n_coordinate for feature ID {f.id()}: {e}")
+        else:
+            print(f"No valid feature found with ID {f.id()}")
+
+        return n_coordinate
+
+
 
 
 
@@ -574,15 +610,15 @@ class BathyFlowDEM:
 
             
             ########################################################################
-            ## Create new points layer with X, Y, S and N coordinates and flow direction
+            ## Create new points layer with S and N coordinates and flow direction
             ########################################################################       
 
-            # Clone input shp point layer: comes with all attributes: id, X and Y
+            # Clone input shp point layer: comes with all attributes
             point_layer.selectAll()
             point_layer_SN = processing.run("native:saveselectedfeatures", {'INPUT': point_layer,
                                                                                'OUTPUT': 'TEMPORARY_OUTPUT'})['OUTPUT']
             point_layer.removeSelection()
-            point_layer_SN.setName('points_xy_and_sn')
+            point_layer_SN.setName('Points SN')
             
             # To enable check of a particular capability 
             pl_caps = point_layer_SN.dataProvider().capabilities()
@@ -599,35 +635,35 @@ class BathyFlowDEM:
                  point_layer_SN.dataProvider().addAttributes(pl_new_fields)
             point_layer_SN.updateFields()
 
+            # Get field's id from name for later
+            pointSN_fields = point_layer_SN.fields()
+            s_index = pointSN_fields.indexFromName("S")
+            n_index = pointSN_fields.indexFromName("N")
+            flowdir_index = pointSN_fields.indexFromName("FlowDir")
+
+
 
             # Calculate S, N and flow direction
             shortest_dist_point_centerline_layer = self.shortest_dist(point_layer_SN, centerline_layer)
             infos_dict = self.get_s_and_flow_direction(point_layer_SN, centerline_layer)
 
 
+
+
             # Populate the new layer with S, N and FlowDir values
             with edit(point_layer_SN):
 
-
                 for f in point_layer_SN.getFeatures():
 
-                    # Retrieve n, calculated by the shortest_distance algorithm
-                    iterator = shortest_dist_point_centerline_layer.getFeatures(QgsFeatureRequest().setFilterFid(f.id()))
-                    feature = next(iterator)
-                    n_coordinate = feature['distance']
-                    
-                    # Change the sign to negative according to which side of the centerline the point it located
-                    if infos_dict[f.id()]['side'] == -1:
-                        n_coordinate *= -1
-
+                    n_coordinate = self.retrieve_n_coordinate(f, shortest_dist_point_centerline_layer, infos_dict)
                     flow_direction =  infos_dict[f.id()]['flowdir']
-
                     s_coordinate = infos_dict[f.id()]['distance_along_line']
 
+
                     # Add values to the layer
-                    point_layer_SN.changeAttributeValue(f.id(), 1, s_coordinate)
-                    point_layer_SN.changeAttributeValue(f.id(), 2, n_coordinate)   
-                    point_layer_SN.changeAttributeValue(f.id(), 3, flow_direction)      
+                    point_layer_SN.changeAttributeValue(f.id(), s_index, s_coordinate)
+                    point_layer_SN.changeAttributeValue(f.id(), n_index, n_coordinate)   
+                    point_layer_SN.changeAttributeValue(f.id(), flowdir_index, flow_direction)      
 
             # Add new layer to project
             QgsProject.instance().addMapLayer(point_layer_SN)
@@ -660,30 +696,38 @@ class BathyFlowDEM:
                  sampled_points.dataProvider().addAttributes(sp_new_fields)
             sampled_points.updateFields()
 
+            # Get field's id from name for later
+            sp_all_fields = sampled_points.fields()
+            s_index = sp_all_fields.indexFromName("S")
+            n_index = sp_all_fields.indexFromName("N")
+
+
+
+
 
             # Get S and S for each points
             shortest_dist_point_centerline_layer_sampled = self.shortest_dist(sampled_points, centerline_layer)
             infos_dict_sampled = self.get_s_and_flow_direction(sampled_points, centerline_layer)
+
+            
+            
+
 
             # Populate the new layer with S, N and FlowDir values
             with edit(sampled_points):
 
                 for f in sampled_points.getFeatures():
 
-                    # Retrieve n, calculated by the shortest_distance algorithm
-                    iterator = shortest_dist_point_centerline_layer_sampled.getFeatures(QgsFeatureRequest().setFilterFid(f.id()))
-                    feature = next(iterator)
-                    n_coordinate = feature['distance']
-                    
-                    # Change the sign to negative according to which side of the centerline the point it located
-                    if infos_dict_sampled[f.id()]['side'] == -1:
-                        n_coordinate *= -1
-
+                    n_coordinate = self.retrieve_n_coordinate(f, shortest_dist_point_centerline_layer_sampled, infos_dict_sampled)
+                    flow_direction =  infos_dict_sampled[f.id()]['flowdir']
                     s_coordinate = infos_dict_sampled[f.id()]['distance_along_line']
 
                     # Add values to the layer
-                    sampled_points.changeAttributeValue(f.id(), 0, s_coordinate) 
-                    sampled_points.changeAttributeValue(f.id(), 1, n_coordinate)
+                    sampled_points.changeAttributeValue(f.id(), s_index, s_coordinate) 
+                    sampled_points.changeAttributeValue(f.id(), n_index, n_coordinate)
+
+
+
 
 
 
@@ -706,11 +750,10 @@ class BathyFlowDEM:
 
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
-            QgsProject.instance().addMapLayer(sampled_points)
-
 
             
-         
+            
+
 
 
 
