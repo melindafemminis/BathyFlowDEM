@@ -582,7 +582,7 @@ class BathyFlowDEM:
             point_layer_SN = processing.run("native:saveselectedfeatures", {'INPUT': point_layer,
                                                                                'OUTPUT': 'TEMPORARY_OUTPUT'})['OUTPUT']
             point_layer.removeSelection()
-            point_layer_SN.setName('points_xy_and_sn')
+            point_layer_SN.setName('Points SN')
             
             # To enable check of a particular capability 
             pl_caps = point_layer_SN.dataProvider().capabilities()
@@ -609,7 +609,6 @@ class BathyFlowDEM:
             s_index = pointSN_fields.indexFromName("S")
             n_index = pointSN_fields.indexFromName("N")
             flowdir_index = pointSN_fields.indexFromName("FlowDir")
-
 
             # Populate the new layer with S, N and FlowDir values
             with edit(point_layer_SN):
