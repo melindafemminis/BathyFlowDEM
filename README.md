@@ -33,8 +33,8 @@ With the *Calculate differences and RMSE* checked, it creates an extra layer con
 ## Constaints and limitations
 
 - The data must be in a projected coordinate system.
-- Input data points must only have 1 attribute with the value to interpolate.
-- At the moment, the plugin only has one interpolation method available.- Applicable for single channel rivers, not braided rivers.
+- At the moment, the plugin only has one interpolation method available.
+- Applicable for single channel rivers, not braided rivers.
 
 ## Tools and requirements
 
