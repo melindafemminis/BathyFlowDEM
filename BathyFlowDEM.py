@@ -131,9 +131,6 @@ class BathyFlowDEM:
 
 
 
-
-
-
     ########################################################################
     ## To install and uninstall plugin
     ########################################################################
@@ -177,10 +174,6 @@ class BathyFlowDEM:
 
 
 
-
-
-
-
     ########################################################################
     ## Tests and checks
     ########################################################################
@@ -208,18 +201,13 @@ class BathyFlowDEM:
 
 
 
-
-
-
-
-
-
     ########################################################################
     ## Methods linkes to Qt Widgets
     ########################################################################
     
     def clearMessageBar(self):
         self.plugin_message_bar.clearWidgets()
+
 
     def showWarningMessage(self, message):
         self.plugin_message_bar.pushMessage(message, level=Qgis.Warning)
@@ -273,12 +261,6 @@ class BathyFlowDEM:
             self.dlg.saveDirWidget.setEnabled(True)
             self.dlg.cbOpenOutputFile.setEnabled(True)
             
-
-
-
-
-
-
 
 
 
