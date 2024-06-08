@@ -221,6 +221,9 @@ class BathyFlowDEM:
     def clearMessageBar(self):
         self.plugin_message_bar.clearWidgets()
 
+    def showWarningMessage(self, message):
+        self.plugin_message_bar.pushMessage(message, level=Qgis.Warning)
+
 
     def onStart(self):
         """
@@ -282,11 +285,9 @@ class BathyFlowDEM:
     def run(self):
         """Main method"""
 
-
         ########################################################################
         ## Set the dialog window, restrictions and updates
         ########################################################################
-
         # Restrict the type of layer that can be selected in the combo boxes
         self.dlg.cbInputROI.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.dlg.cbInputPointLayer.setFilters(QgsMapLayerProxyModel.PointLayer)
@@ -307,11 +308,9 @@ class BathyFlowDEM:
 
         if result:
 
-
             ########################################################################
             ## Get selected user's values INPUTS and OUTPUT choice/destination
             ########################################################################
-
             # Get user input layers an
             point_layer = self.dlg.cbInputPointLayer.currentLayer()
             centerline_layer = self.dlg.cbInputVectorCenterline.currentLayer()
@@ -335,14 +334,9 @@ class BathyFlowDEM:
                     saving_option = 'Save to folder only'
 
 
-        
-
-
-            
             ########################################################################
             ## Create new points layer with S and N coordinates and flow direction
             ########################################################################       
-
             # Clone input shp point layer: comes with all attributes
             point_layer.selectAll()
             point_layer_SN = processing.run("native:saveselectedfeatures", {'INPUT': point_layer,
@@ -371,14 +365,9 @@ class BathyFlowDEM:
             n_index = pointSN_fields.indexFromName("N")
             flowdir_index = pointSN_fields.indexFromName("FlowDir")
 
-
-
             # Calculate S, N and flow direction
             shortest_dist_point_centerline_layer = shortest_dist(point_layer_SN, centerline_layer)
             infos_dict = get_s_and_flow_direction(point_layer_SN, centerline_layer)
-
-
-
 
             # Populate the new layer with S, N and FlowDir values
             with edit(point_layer_SN):
@@ -389,7 +378,6 @@ class BathyFlowDEM:
                     flow_direction =  infos_dict[f.id()]['flowdir']
                     s_coordinate = infos_dict[f.id()]['distance_along_line']
 
-
                     # Add values to the layer
                     point_layer_SN.changeAttributeValue(f.id(), s_index, s_coordinate)
                     point_layer_SN.changeAttributeValue(f.id(), n_index, n_coordinate)   
@@ -399,47 +387,26 @@ class BathyFlowDEM:
             QgsProject.instance().addMapLayer(point_layer_SN)
 
 
-
-
             ########################################################################
             ## Prepare new layers for interpolation
             ########################################################################   
-
             raster_ROI_extent, sampled_points = create_sample_points(point_layer, cell_size, boundary_layer)
 
             # Prepare fields for the sampled_points layer
             sp_caps = sampled_points.dataProvider().capabilities()
-
-            # Delete VALUE field created by pixel to layer native algorithm
-            if sp_caps & QgsVectorDataProvider.DeleteAttributes:
-                sampled_points.dataProvider().deleteAttributes([0])
-
-            # Create list of new fields
-            sp_new_fields = [
-                QgsField("S", QVariant.Double),
-                QgsField("N", QVariant.Double),
-                QgsField("Interpolated", QVariant.Double)
-            ]
-
-            # Add fields to layer and update layer
-            if sp_caps & QgsVectorDataProvider.AddAttributes:
-                 sampled_points.dataProvider().addAttributes(sp_new_fields)
-            sampled_points.updateFields()
 
             # Get field's id from name for later
             sp_all_fields = sampled_points.fields()
             s_index = sp_all_fields.indexFromName("S")
             n_index = sp_all_fields.indexFromName("N")
 
-            # Get S and S for each points
+            # Get S and N coordinates information
             shortest_dist_point_centerline_layer_sampled = shortest_dist(sampled_points, centerline_layer)
             infos_dict_sampled = get_s_and_flow_direction(sampled_points, centerline_layer)
 
             # Populate the new layer with S, N and FlowDir values
             with edit(sampled_points):
-
                 for f in sampled_points.getFeatures():
-
                     n_coordinate = retrieve_n_coordinate(f, shortest_dist_point_centerline_layer_sampled, infos_dict_sampled)
                     flow_direction =  infos_dict_sampled[f.id()]['flowdir']
                     s_coordinate = infos_dict_sampled[f.id()]['distance_along_line']
@@ -452,7 +419,7 @@ class BathyFlowDEM:
             ########################################################################
             ## interpolate value for each point
             ########################################################################  
-                    
+            # second loop necessary so that SN info are saved
             with edit(sampled_points):
                 for f in sampled_points.getFeatures():
 
@@ -463,14 +430,12 @@ class BathyFlowDEM:
                                                     point_layer=point_layer_SN, 
                                                     anisotropy_ratio=anisotropy_value, 
                                                     max_distance=max_distance)
-
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
 
             ########################################################################
             ## Add interpolated values to raster cells and save
             ########################################################################   
-
             # Create full path to save final raster
             folder_path = self.dlg.saveDirWidget.filePath()
             dataname = 'Interpolated raster'
@@ -505,7 +470,6 @@ class BathyFlowDEM:
             }
 
             if saving_option == 'Save to temporary layer':    
-
                 rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
                 final_raster = layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                 QgsProject.instance().addMapLayer(final_raster)
@@ -525,24 +489,17 @@ class BathyFlowDEM:
                     final_raster = layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
 
                     self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
-                    
-
-
-
-
 
 
             ########################################################################
             ## For each input point in the ROI, calculate the difference between actual point and raster cell + total rmse
             ########################################################################   
-
             if self.dlg.cbModelEvaluation.isChecked():
 
                 actual_values, predicted_values, differences_layer = differences(point_layer=point_layer, 
                                                                                  boundary_layer=boundary_layer,
                                                                                  raster=final_raster,
                                                                                  field=field_to_interpolate)
-
                 QgsProject.instance().addMapLayer(differences_layer)
 
                 rmse_value = rmse(actual_values=actual_values, 

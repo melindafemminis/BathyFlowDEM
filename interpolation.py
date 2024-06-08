@@ -1,6 +1,5 @@
 def eidw(target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance):
-        """
-        Perform IDW interpolation using anisotropy along the already aligned S and N coordinates.
+        """Perform IDW interpolation using anisotropy along the already aligned S and N coordinates.
 
         Args:
             point_layer (QgsVectorLayer): Input layer with point features containing S, N, and Z.
