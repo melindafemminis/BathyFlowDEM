@@ -21,14 +21,14 @@
  *                                                                         *
  ***************************************************************************/
 """
-from doctest import OutputChecker
+
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
 import math
 
-from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsFeatureRequest, QgsRasterLayer, QgsAggregateCalculator
+from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField
 from qgis.utils import iface
 from qgis.core.additions.edit import edit
 from qgis.gui import QgsMessageBar
@@ -44,6 +44,11 @@ from .BathyFlowDEM_dialog import BathyFlowDEMDialog
 
 import os.path
 from qgis.core import QgsMapLayerProxyModel, QgsFieldProxyModel
+
+from .interpolation import eidw
+from .validation import differences, rmse
+from .coordinates import get_s_and_flow_direction, shortest_dist, retrieve_n_coordinate
+from .layers_helpers import create_sample_points, layer_to_raster_and_nodata
 
 
 
@@ -126,9 +131,6 @@ class BathyFlowDEM:
 
 
 
-
-
-
     ########################################################################
     ## To install and uninstall plugin
     ########################################################################
@@ -172,10 +174,6 @@ class BathyFlowDEM:
 
 
 
-
-
-
-
     ########################################################################
     ## Tests and checks
     ########################################################################
@@ -203,18 +201,16 @@ class BathyFlowDEM:
 
 
 
-
-
-
-
-
-
     ########################################################################
     ## Methods linkes to Qt Widgets
     ########################################################################
     
     def clearMessageBar(self):
         self.plugin_message_bar.clearWidgets()
+
+
+    def showWarningMessage(self, message):
+        self.plugin_message_bar.pushMessage(message, level=Qgis.Warning)
 
 
     def onStart(self):
@@ -268,295 +264,12 @@ class BathyFlowDEM:
 
 
 
-
-
-
-
-    ########################################################################
-    ## Methods to get S, N and flow direction 
-    ########################################################################
-    
-    def get_s_and_flow_direction(self, point_layer, centerline):
-        """
-        Calculates for each point the distance along a line , the side of the line it's on and segment direction.
-
-        Args:
-            centerline_layer (QgsVectorLayer): Input layer with a single line of flow direction
-            survey_points_layer (QgsVectorLayer): Input layer with points
-
-        Returns:
-            dictionnary: Key is point ID with side, distance along line and flowdir values.
-        """
-
-
-        # Initialize a dictionary to store the values
-        results_dir = {}
-
-        # In case more than one line, will get the first one
-        line_feature = next(centerline.getFeatures())
-        line_geom = line_feature.geometry()
-
-        # Iterate over each feature in the point layer
-        for point_feature in point_layer.getFeatures():
-            point_geom = point_feature.geometry()
-            minDist, closest_pt, afterVertex, leftOf = line_geom.closestSegmentWithContext(point_geom.asPoint())
-
-            # To know on which side of the center line the point lies
-            side = leftOf
-
-            # To know the distance along the center line for each point
-            distance_along_line = line_geom.lineLocatePoint(point_geom)
-
-            # To know flow direction, get vertex before and after point
-            before_vertex_index = afterVertex - 1
-
-            start_point = line_geom.vertexAt(before_vertex_index)
-            end_point = line_geom.vertexAt(afterVertex)
-
-            # Calculate flow direction as an angle
-            if start_point and end_point:
-
-                dx = end_point.x() - start_point.x()
-                dy = end_point.y() - start_point.y()
-                # Calculates the angle in radians of the segment relative to the horizontal axis, 
-                # taking into account the correct quadrant.
-                angle_rad = math.atan2(dy, dx)
-                angle_deg = math.degrees(angle_rad)
-            else:
-                angle_deg = None
-        
-            results_dir[point_feature.id()] = {'side': side, 
-                                                'distance_along_line': distance_along_line,
-                                                'flowdir': angle_deg}
-
-        return results_dir
-
-
-    def shortest_dist(self, point_layer, centerline):
-
-
-        short_dist_params = {'SOURCE': point_layer,
-                            'DESTINATION': centerline,
-                            'METHOD': 0,
-                            'NEIGHBORS': 1,
-                            'END_OFFSET': 0,
-                            'DISTANCE': None,
-                            'OUTPUT': 'TEMPORARY_OUTPUT'}
-
-        result_layer = processing.run("native:shortestline", short_dist_params)['OUTPUT']
-        
-            
-        # Add line length to distance field if not there already 
-        if result_layer.isValid():
-            with edit(result_layer):
-                for feature in result_layer.getFeatures():
-                    if feature['distance'] is None:
-                        feature['distance'] = feature.geometry().length()
-                        result_layer.updateFeature(feature)
-                print("Distance field populated with line lengths.")
-        else:
-            self.plugin_message_bar.pushMessage("Warning", f"Error with shortest_dist().", level=Qgis.Warning)
-            raise ValueError("Error: Resulting layer from shortest line between features is not valid.")
-
-        return result_layer
-    
-
-    def retrieve_n_coordinate(self, f, shortest_dist_layer, info_dict):
-
-        # Retrieve n, calculated by the shortest_distance algorithm
-        feature = shortest_dist_layer.getFeature(f.id())
-
-        if feature.isValid():
-            try:
-                # Change the sign to negative according to which side of the centerline the point it located
-                n_coordinate = feature['distance']
-                if info_dict[f.id()]['side'] == -1:
-                    n_coordinate *= -1
-            except (ValueError, TypeError) as e:
-                print(f"Error processing n_coordinate for feature ID {f.id()}: {e}")
-        else:
-            print(f"No valid feature found with ID {f.id()}")
-
-        return n_coordinate
-
-
-
-
-
-
-
-
-
-    ########################################################################
-    ## Functions to create and process new layers
-    ########################################################################
-
-    def create_sample_points(self, survey_points_layer, pixel_size, ROI):
-        ''' 
-        Creates new raster layer and sample 1 point per pixel
-
-        Args: 
-            survey_points_layer (QgsVectorLayer): containing original survey points. used to retrieve CRS
-            ROI (QgsVectorLayer): Region Of Interest, boundary layer used to retrieve extent
-            pixel_size (Int): user defined pixel size
-
-        Returns:
-            QgsRasterLayer with the new raster
-            QgsVectorLayer with the sampled points
-        '''
-
-        # Create raster layer
-        create_raster_params = {'EXTENT': ROI.extent(),
-                                'TARGET_CRS': survey_points_layer.crs(),
-                                'PIXEL_SIZE': pixel_size,
-                                'OUTPUT_TYPE': 5,
-                                'OUTPUT': 'TEMPORARY_OUTPUT'}
-        
-        created_raster = processing.run("native:createconstantrasterlayer", create_raster_params)
-        new_raster = QgsRasterLayer(created_raster['OUTPUT'], 'Grid_empty')
-
-
-        # Sample one point per pixel
-        pixelpoint_params = {'INPUT_RASTER': new_raster,
-                             'RASTER_BAND': 1,
-                             'FIELD_NAME': 'VALUE',
-                             'OUTPUT': 'TEMPORARY_OUTPUT'}
-        
-        sampled_points = processing.run("native:pixelstopoints", pixelpoint_params)['OUTPUT']
-
-        return new_raster, sampled_points
-
-
-    def layer_to_raster_and_nodata(self, raster, nodata):
-        """
-        Converts the output of a raster algorithm and adds nodata value to its band 1
-
-        Args:
-            raster (QgsRasterLayer)
-            nodata (int/float): to add to the nodata values
-
-        Returns:
-            raster (QgsRasterLayer); named Interpolated raster with nodata set
-        """
-
-        final_raster = QgsRasterLayer(raster, 'Interpolated raster')
-        provider = final_raster.dataProvider()
-        provider.setNoDataValue(1, nodata)
-        final_raster.triggerRepaint()
-        
-        return final_raster
-
-
-
-
-
-
-
-    ########################################################################
-    ## Interpolation with anisotropy
-    ########################################################################
-        
-    def eidw(self, target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance):
-        """
-        Perform IDW interpolation using anisotropy along the already aligned S and N coordinates.
-
-        Args:
-            point_layer (QgsVectorLayer): Input layer with point features containing S, N, and Z.
-            value_field (str): Name of the field with values to interpolate.
-            target_s (float): Target point's S coordinate.
-            target_n (float): Target point's N coordinate.
-            anisotropy_ratio (float): Factor by which distances across the flow (N direction) are scaled.
-
-        Returns:
-            float: Interpolated value at the target location or 0 if no data
-        """
-        sum_weighted_values = 0
-        sum_weights = 0
-        distances = []
-        
-        for feature in point_layer.getFeatures():
-            s = feature['S']
-            n = feature['N']
-            value = feature[value_field]
-            
-            # Calculate distances in the S and N directions
-            ds = s - target_s
-
-            # Same for n while taking negative numbers into account
-            if target_n and n >= 0:
-                dn1 = abs(target_n - n)
-            elif target_n and n < 0: 
-                dn1 = abs(target_n - n)
-            else: 
-                dn1 = abs(target_n) + abs(n)
-            dn = dn1 * anisotropy_ratio
-
-            # Calculate the anisotropic distance by modifying it on the N axis
-            distance = (ds**2 + dn**2) ** 0.5
-
-            if distance <= max_distance:
-                distances.append((distance, value))
-            
-            if distance < 0.0001:  # If point is right on it/super close
-                return value
-                        
-        if not distances:
-            return 0
-        else:
-            for distance, value, in distances:
-                weight = 1 / distance
-                sum_weights += weight
-                sum_weighted_values += weight * value
-            
-            return sum_weighted_values / sum_weights
-              
-
-
-
-
-
-    
-    ########################################################################
-    ## Model validation  
-    ########################################################################
-
-
-    def rmse(self, actual_values, predicted_values):
-        
-        differences = [pred - act for pred, act in zip(predicted_values, actual_values)]
-
-        squared_differences = [diff ** 2 for diff in differences]
-
-        mean_squared_difference = sum(squared_differences) / len(squared_differences)
-        print(f'Mean squared difference: {mean_squared_difference}')
-        rmse = math.sqrt(mean_squared_difference)
-        
-        return rmse
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def run(self):
         """Main method"""
-
 
         ########################################################################
         ## Set the dialog window, restrictions and updates
         ########################################################################
-
         # Restrict the type of layer that can be selected in the combo boxes
         self.dlg.cbInputROI.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.dlg.cbInputPointLayer.setFilters(QgsMapLayerProxyModel.PointLayer)
@@ -577,11 +290,9 @@ class BathyFlowDEM:
 
         if result:
 
-
             ########################################################################
             ## Get selected user's values INPUTS and OUTPUT choice/destination
             ########################################################################
-
             # Get user input layers an
             point_layer = self.dlg.cbInputPointLayer.currentLayer()
             centerline_layer = self.dlg.cbInputVectorCenterline.currentLayer()
@@ -605,14 +316,9 @@ class BathyFlowDEM:
                     saving_option = 'Save to folder only'
 
 
-        
-
-
-            
             ########################################################################
             ## Create new points layer with S and N coordinates and flow direction
             ########################################################################       
-
             # Clone input shp point layer: comes with all attributes
             point_layer.selectAll()
             point_layer_SN = processing.run("native:saveselectedfeatures", {'INPUT': point_layer,
@@ -641,24 +347,18 @@ class BathyFlowDEM:
             n_index = pointSN_fields.indexFromName("N")
             flowdir_index = pointSN_fields.indexFromName("FlowDir")
 
-
-
             # Calculate S, N and flow direction
-            shortest_dist_point_centerline_layer = self.shortest_dist(point_layer_SN, centerline_layer)
-            infos_dict = self.get_s_and_flow_direction(point_layer_SN, centerline_layer)
-
-
-
+            shortest_dist_point_centerline_layer = shortest_dist(point_layer_SN, centerline_layer)
+            infos_dict = get_s_and_flow_direction(point_layer_SN, centerline_layer)
 
             # Populate the new layer with S, N and FlowDir values
             with edit(point_layer_SN):
 
                 for f in point_layer_SN.getFeatures():
 
-                    n_coordinate = self.retrieve_n_coordinate(f, shortest_dist_point_centerline_layer, infos_dict)
+                    n_coordinate = retrieve_n_coordinate(f, shortest_dist_point_centerline_layer, infos_dict)
                     flow_direction =  infos_dict[f.id()]['flowdir']
                     s_coordinate = infos_dict[f.id()]['distance_along_line']
-
 
                     # Add values to the layer
                     point_layer_SN.changeAttributeValue(f.id(), s_index, s_coordinate)
@@ -669,56 +369,27 @@ class BathyFlowDEM:
             QgsProject.instance().addMapLayer(point_layer_SN)
 
 
-
-
             ########################################################################
             ## Prepare new layers for interpolation
             ########################################################################   
-
-            raster_ROI_extent, sampled_points = self.create_sample_points(point_layer, cell_size, boundary_layer)
+            raster_ROI_extent, sampled_points = create_sample_points(point_layer, cell_size, boundary_layer)
 
             # Prepare fields for the sampled_points layer
             sp_caps = sampled_points.dataProvider().capabilities()
-
-            # Delete VALUE field created by pixel to layer native algorithm
-            if sp_caps & QgsVectorDataProvider.DeleteAttributes:
-                sampled_points.dataProvider().deleteAttributes([0])
-
-            # Create list of new fields
-            sp_new_fields = [
-                QgsField("S", QVariant.Double),
-                QgsField("N", QVariant.Double),
-                QgsField("Interpolated", QVariant.Double)
-            ]
-
-            # Add fields to layer and update layer
-            if sp_caps & QgsVectorDataProvider.AddAttributes:
-                 sampled_points.dataProvider().addAttributes(sp_new_fields)
-            sampled_points.updateFields()
 
             # Get field's id from name for later
             sp_all_fields = sampled_points.fields()
             s_index = sp_all_fields.indexFromName("S")
             n_index = sp_all_fields.indexFromName("N")
 
-
-
-
-
-            # Get S and S for each points
-            shortest_dist_point_centerline_layer_sampled = self.shortest_dist(sampled_points, centerline_layer)
-            infos_dict_sampled = self.get_s_and_flow_direction(sampled_points, centerline_layer)
-
-            
-            
-
+            # Get S and N coordinates information
+            shortest_dist_point_centerline_layer_sampled = shortest_dist(sampled_points, centerline_layer)
+            infos_dict_sampled = get_s_and_flow_direction(sampled_points, centerline_layer)
 
             # Populate the new layer with S, N and FlowDir values
             with edit(sampled_points):
-
                 for f in sampled_points.getFeatures():
-
-                    n_coordinate = self.retrieve_n_coordinate(f, shortest_dist_point_centerline_layer_sampled, infos_dict_sampled)
+                    n_coordinate = retrieve_n_coordinate(f, shortest_dist_point_centerline_layer_sampled, infos_dict_sampled)
                     flow_direction =  infos_dict_sampled[f.id()]['flowdir']
                     s_coordinate = infos_dict_sampled[f.id()]['distance_along_line']
 
@@ -726,42 +397,27 @@ class BathyFlowDEM:
                     sampled_points.changeAttributeValue(f.id(), s_index, s_coordinate) 
                     sampled_points.changeAttributeValue(f.id(), n_index, n_coordinate)
 
-
-
-
-
-
-
-            
+ 
             ########################################################################
             ## interpolate value for each point
             ########################################################################  
-                    
+            # second loop necessary so that SN info are saved
             with edit(sampled_points):
                 for f in sampled_points.getFeatures():
 
                     # Get interpolated value for the point
-                    interpolated_value = self.eidw(target_s=f['S'], 
+                    interpolated_value = eidw(target_s=f['S'], 
                                                     target_n=f['N'], 
                                                     value_field=field_to_interpolate, 
                                                     point_layer=point_layer_SN, 
                                                     anisotropy_ratio=anisotropy_value, 
                                                     max_distance=max_distance)
-
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
 
-            
-            
-
-
-
-
-
             ########################################################################
-            ## Add interpolated values to raster cells 
+            ## Add interpolated values to raster cells and save
             ########################################################################   
-
             # Create full path to save final raster
             folder_path = self.dlg.saveDirWidget.filePath()
             dataname = 'Interpolated raster'
@@ -796,9 +452,8 @@ class BathyFlowDEM:
             }
 
             if saving_option == 'Save to temporary layer':    
-
                 rasterize_raster = processing.run("gdal:rasterize", params)['OUTPUT']
-                final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
+                final_raster = layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                 QgsProject.instance().addMapLayer(final_raster)
 
                 self.plugin_message_bar.pushMessage("Success", "File loaded to project.", level=Qgis.Success)
@@ -806,54 +461,32 @@ class BathyFlowDEM:
             else:
                 if saving_option == 'Save to folder and load':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
-                    final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
+                    final_raster = layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                     QgsProject.instance().addMapLayer(final_raster)
 
                     self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
 
                 elif saving_option == 'Save to folder only':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
-                    final_raster = self.layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
+                    final_raster = layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
 
                     self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
-                    
-
-
-
-
 
 
             ########################################################################
-            ## For each input point in the ROI, calculate the difference between actual point and raster cell
+            ## For each input point in the ROI, calculate the difference between actual point and raster cell + total rmse
             ########################################################################   
-
             if self.dlg.cbModelEvaluation.isChecked():
 
-                # Select only points used for interpolation
-                clip_params = {
-                    'INPUT': point_layer, 
-                    'OVERLAY': boundary_layer,
-                    'OUTPUT': 'TEMPORARY_OUTPUT'
-                }
-                used_points = processing.run("native:clip", clip_params)['OUTPUT']
+                actual_values, predicted_values, differences_layer = differences(point_layer=point_layer, 
+                                                                                 boundary_layer=boundary_layer,
+                                                                                 raster=final_raster,
+                                                                                 field=field_to_interpolate)
+                QgsProject.instance().addMapLayer(differences_layer)
 
-                sample_params = {
-                    'INPUT': used_points,
-                    'RASTERCOPY': final_raster,
-                    'COLUMN_PREFIX': 'SAMPLE_',
-                    'OUTPUT': 'TEMPORARY_OUTPUT'
-                }
-
-                used_points_with_sampled_raster = processing.run("native:rastersampling", sample_params)['OUTPUT']
-                used_points_with_sampled_raster.setName('Data validation - differences')
-
-                QgsProject.instance().addMapLayer(used_points_with_sampled_raster)
-
-                actual_values = used_points_with_sampled_raster.aggregate(QgsAggregateCalculator.ArrayAggregate, field_to_interpolate)[0]
-                predicted_values = used_points_with_sampled_raster.aggregate(QgsAggregateCalculator.ArrayAggregate, 'SAMPLE_1')[0]
-
-                rmse =self.rmse(actual_values, predicted_values,)
+                rmse_value = rmse(actual_values=actual_values, 
+                            predicted_values=predicted_values)
                 
                 self.dlg.boxRMSEresults.show()
-                self.dlg.labelRMSE.setText(f"Final RMSE: {rmse}")
+                self.dlg.labelRMSE.setText(f"Final RMSE: {rmse_value}")
             
