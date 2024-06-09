@@ -1,4 +1,4 @@
-def eidw(target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance):
+def eidw(target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance, p):
         """Perform IDW interpolation using anisotropy along the already aligned S and N coordinates.
 
         Args:
@@ -45,7 +45,7 @@ def eidw(target_s, target_n, value_field, point_layer, anisotropy_ratio, max_dis
             return 0
         else:
             for distance, value, in distances:
-                weight = 1 / distance
+                weight = 1 / (distance ** p)
                 sum_weights += weight
                 sum_weighted_values += weight * value
             

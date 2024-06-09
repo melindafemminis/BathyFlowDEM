@@ -453,7 +453,8 @@ class BathyFlowDEM:
                                                     value_field=field_to_interpolate, 
                                                     point_layer=point_layer_SN, 
                                                     anisotropy_ratio=anisotropy_value, 
-                                                    max_distance=max_distance)
+                                                    max_distance=max_distance,
+                                                    p=2)
                     sampled_points.changeAttributeValue(f.id(), 2, interpolated_value)
             
 
