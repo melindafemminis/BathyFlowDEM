@@ -3,12 +3,12 @@ import processing
 
 from qgis.core import QgsAggregateCalculator
 
-def differences(point_layer, boundary_layer, raster, field):
+def differences(point_layer, extent, raster, field):
         
     # Select only points used for interpolation
     clip_params = {
         'INPUT': point_layer, 
-        'OVERLAY': boundary_layer,
+        'OVERLAY': extent,
         'OUTPUT': 'TEMPORARY_OUTPUT'
     }
     used_points = processing.run("native:clip", clip_params)['OUTPUT']

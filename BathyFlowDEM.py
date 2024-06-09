@@ -336,6 +336,12 @@ class BathyFlowDEM:
             point_layer = self.dlg.cbInputPointLayer.currentLayer()
             centerline_layer = self.dlg.cbInputVectorCenterline.currentLayer()
             boundary_layer = self.dlg.cbInputROI.currentLayer()
+            # Retrive polygon boundary from layer
+            polygon_geometry = None
+            for feature in boundary_layer.getFeatures():
+                polygon_geometry = feature.geometry()
+                break
+            extent = polygon_geometry.boundingBox()
 
             # Get name of field to interpolate
             field_to_interpolate = str(self.dlg.cbAttField.currentText())
@@ -411,10 +417,7 @@ class BathyFlowDEM:
             ########################################################################
             ## Prepare new layers for interpolation
             ########################################################################   
-            raster_ROI_extent, sampled_points = create_sample_points(point_layer, cell_size, boundary_layer)
-
-            # Prepare fields for the sampled_points layer
-            sp_caps = sampled_points.dataProvider().capabilities()
+            raster_ROI_extent, sampled_points = create_sample_points(point_layer, cell_size, extent)
 
             # Get field's id from name for later
             sp_all_fields = sampled_points.fields()
@@ -486,7 +489,7 @@ class BathyFlowDEM:
                 'UNITS':1,
                 'WIDTH': cell_size,
                 'HEIGHT': cell_size,
-                'EXTENT': raster_ROI_extent.extent(),
+                'EXTENT': extent,
                 'OUTPUT': full_path
             }
 
@@ -517,7 +520,7 @@ class BathyFlowDEM:
             if self.dlg.cbModelEvaluation.isChecked():
 
                 actual_values, predicted_values, differences_layer = differences(point_layer=point_layer, 
-                                                                                 boundary_layer=boundary_layer,
+                                                                                 extent=boundary_layer,
                                                                                  raster=final_raster,
                                                                                  field=field_to_interpolate)
                 QgsProject.instance().addMapLayer(differences_layer)

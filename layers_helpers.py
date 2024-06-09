@@ -3,7 +3,7 @@ from qgis.core import QgsRasterLayer, QgsVectorDataProvider, QgsField
 from qgis.PyQt.QtCore import QVariant
 
 
-def create_sample_points(survey_points_layer, pixel_size, ROI):
+def create_sample_points(survey_points_layer, pixel_size, extent):
         """Creates new raster layer and samples 1 point per pixel in the center.
 
         Args: 
@@ -16,7 +16,7 @@ def create_sample_points(survey_points_layer, pixel_size, ROI):
         """
 
         # Create raster layer
-        create_raster_params = {'EXTENT': ROI.extent(),
+        create_raster_params = {'EXTENT': extent,
                                 'TARGET_CRS': survey_points_layer.crs(),
                                 'PIXEL_SIZE': pixel_size,
                                 'OUTPUT_TYPE': 5,
