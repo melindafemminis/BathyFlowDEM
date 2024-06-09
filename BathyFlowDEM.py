@@ -24,17 +24,15 @@
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QLabel, QWidget, QHBoxLayout
 
-import math
+import sys
 
 from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField
-from qgis.utils import iface
 from qgis.core.additions.edit import edit
 from qgis.gui import QgsMessageBar
 import processing
 
-from osgeo import gdal, osr
 from osgeo.gdalconst import *
 
 # Initialize Qt resources from file resources.py
@@ -82,9 +80,6 @@ class BathyFlowDEM:
 
         # Create instance of dialog class
         self.dlg = BathyFlowDEMDialog()
-
-        
-
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -261,6 +256,50 @@ class BathyFlowDEM:
             self.dlg.saveDirWidget.setEnabled(True)
             self.dlg.cbOpenOutputFile.setEnabled(True)
             
+
+    def create_custom_message_widget_with_link(self, message, file_path):
+        """Creates a custom success message that includes a clickable path.
+        Styled to look like the standard Qgis Success message.
+        """
+        widget = QWidget()
+        layout = QHBoxLayout()
+
+        # Create QLabel for Success word and custom text
+        success_label = QLabel("<b>Success:</b>")
+        layout.addWidget(success_label)
+        text_label = QLabel(message)
+        layout.addWidget(text_label)
+
+        # Create QLabel for the clickable link
+        link_label = QLabel()
+        link_label.setText(f'<a style="color:#2a8000;" href="{file_path}">{file_path}</a>')
+        link_label.setOpenExternalLinks(False)
+        link_label.linkActivated.connect(lambda: self.open_file_location(file_path))
+        layout.addWidget(link_label)
+
+        layout.addStretch() # Push all the content to the left side
+
+        widget.setLayout(layout)
+        return widget
+
+
+    def open_file_location(self, link):
+        # Open the file location in the system's file explorer
+        if sys.platform == 'win32':
+            # Windows
+            os.startfile(os.path.dirname(link))
+        elif sys.platform == 'darwin':
+            # macOS
+            os.system(f'open "{os.path.dirname(link)}"')
+        else:
+            # Linux
+            os.system(f'xdg-open "{os.path.dirname(link)}"')
+
+
+    def show_success_message_with_link(self, message_text, full_path):
+        custom_widget = self.create_custom_message_widget_with_link(message_text, full_path)
+        self.plugin_message_bar.pushWidget(custom_widget, Qgis.Success)
+
 
 
 
@@ -463,15 +502,14 @@ class BathyFlowDEM:
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
                     final_raster = layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
                     QgsProject.instance().addMapLayer(final_raster)
-
-                    self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
+                    self.show_success_message_with_link("File loaded and saved to ", full_path)
 
                 elif saving_option == 'Save to folder only':
                     rasterize_raster = processing.run("gdal:rasterize", params_save)['OUTPUT']
                     final_raster = layer_to_raster_and_nodata(rasterize_raster, 0) # QgsRasterLayer to output + nodata
 
-                    self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
-
+                    #self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
+                    self.show_success_message_with_link("File saved to ", full_path)
 
             ########################################################################
             ## For each input point in the ROI, calculate the difference between actual point and raster cell + total rmse

@@ -27,11 +27,6 @@ import os
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
 
-# Imports to display error message in Qgis bar
-from qgis.core import Qgis
-from qgis.utils import iface
-
-
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
