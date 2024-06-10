@@ -30,7 +30,13 @@ def differences(point_layer, extent, raster, field):
 
 def rmse(actual_values, predicted_values):
         
-        differences = [pred - act for pred, act in zip(predicted_values, actual_values)]
+        differences = []
+        for pred, act in zip(predicted_values, actual_values):
+            try:
+                diff = pred - act
+                differences.append(diff)
+            except TypeError:
+                print(f"TypeError: Unsupported operand types for -: '{type(pred)}' and '{type(act)}'")
 
         squared_differences = [diff ** 2 for diff in differences]
 
