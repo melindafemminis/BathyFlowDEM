@@ -27,8 +27,9 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QLabel, QWidget, QHBoxLayout
 
 import sys
+import time
 
-from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField
+from qgis.core import Qgis, QgsProject, QgsVectorDataProvider, QgsField, QgsSpatialIndex
 from qgis.core.additions.edit import edit
 from qgis.gui import QgsMessageBar
 import processing
@@ -43,7 +44,7 @@ from .BathyFlowDEM_dialog import BathyFlowDEMDialog
 import os.path
 from qgis.core import QgsMapLayerProxyModel, QgsFieldProxyModel
 
-from .interpolation import eidw
+from .interpolation import eidw, create_index, create_indexKDBush
 from .validation import differences, rmse
 from .coordinates import get_s_and_flow_direction, shortest_dist, retrieve_n_coordinate
 from .layers_helpers import create_sample_points, layer_to_raster_and_nodata
@@ -230,7 +231,6 @@ class BathyFlowDEM:
         Called when the Cancel button is clicked.
         Closes the plugin window.
         """
-        self.clearMessageBar()
         self.dlg.close()
 
 
@@ -305,6 +305,9 @@ class BathyFlowDEM:
 
     def run(self):
         """Main method"""
+        self.clearMessageBar()
+        start_time = time.time()
+        
 
         ########################################################################
         ## Set the dialog window, restrictions and updates
@@ -443,15 +446,18 @@ class BathyFlowDEM:
             ########################################################################
             ## interpolate value for each point
             ########################################################################  
+            
+            spatial_index = create_indexKDBush(point_layer_SN)
+
             # second loop necessary so that SN info are saved
             with edit(sampled_points):
                 for f in sampled_points.getFeatures():
 
                     # Get interpolated value for the point
-                    interpolated_value = eidw(target_s=f['S'], 
-                                                    target_n=f['N'], 
+                    interpolated_value = eidw(target_point=f, 
                                                     value_field=field_to_interpolate, 
-                                                    point_layer=point_layer_SN, 
+                                                    index=spatial_index,
+                                                    point_layer=point_layer_SN,
                                                     anisotropy_ratio=anisotropy_value, 
                                                     max_distance=max_distance,
                                                     p=2)
@@ -476,7 +482,7 @@ class BathyFlowDEM:
                 'UNITS':1,
                 'WIDTH': cell_size,
                 'HEIGHT': cell_size,
-                'EXTENT': raster_ROI_extent.extent(),
+                'EXTENT': extent,
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
 
@@ -515,6 +521,8 @@ class BathyFlowDEM:
                     #self.plugin_message_bar.pushMessage("Success", f"File loaded and saved to {full_path}.", level=Qgis.Success)
                     self.show_success_message_with_link("File saved to ", full_path)
 
+            
+
             ########################################################################
             ## For each input point in the ROI, calculate the difference between actual point and raster cell + total rmse
             ########################################################################   
@@ -532,3 +540,5 @@ class BathyFlowDEM:
                 self.dlg.boxRMSEresults.show()
                 self.dlg.labelRMSE.setText(f"Final RMSE: {rmse_value}")
             
+            elapsed_time = time.time() - start_time
+            print(f'Finished in {elapsed_time}.')

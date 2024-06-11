@@ -1,4 +1,16 @@
-def eidw(target_s, target_n, value_field, point_layer, anisotropy_ratio, max_distance, p):
+
+from qgis.core import QgsFeatureRequest, QgsSpatialIndexKDBush, QgsSpatialIndex
+
+def create_index(point_layer):
+    index =  QgsSpatialIndex(point_layer.getFeatures())
+    return index
+
+def create_indexKDBush(point_layer):
+    index =  QgsSpatialIndexKDBush(point_layer.getFeatures())
+    return index
+
+
+def eidw(target_point, value_field, index, point_layer, anisotropy_ratio, max_distance, p):
         """Perform IDW interpolation using anisotropy along the already aligned S and N coordinates.
 
         Args:
@@ -14,8 +26,20 @@ def eidw(target_s, target_n, value_field, point_layer, anisotropy_ratio, max_dis
         sum_weighted_values = 0
         sum_weights = 0
         distances = []
+        target_s = target_point['S']
+        target_n = target_point['N']
+
+        # if usind the QgsSpatialIndex class, search is done by total number of neigbors
+        """ nearest_ids = index.nearestNeighbor(target_point.geometry(), neighbors=100)
+        nearest_features = [feature for feature in point_layer.getFeatures(QgsFeatureRequest().setFilterFids(nearest_ids))] """
+
+        # if using the faster QgsSpatialIndexKDBuch class, search is done by radius
+        nearest_data = index.within(target_point.geometry().asPoint(), radius=max_distance)
+        nearest_ids = [data.id for data in nearest_data]
+        # nearest_ids = index.within(target_point.geometry().asPoint(), radius=max_distance)
+        nearest_features = [feature for feature in point_layer.getFeatures(QgsFeatureRequest().setFilterFids(nearest_ids))]
         
-        for feature in point_layer.getFeatures():
+        for feature in nearest_features:
             s = feature['S']
             n = feature['N']
             value = feature[value_field]
