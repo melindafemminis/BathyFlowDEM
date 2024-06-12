@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <idinfo>
+    <citation>
+      <citeinfo>
+        <origin>Carl J. Legleiter</origin>
+        <origin>Lee R. Harrison</origin>
+        <pubdate>2019</pubdate>
+        <title>Depth measurements from the upper Sacramento River in northern California, September 11-14, 2017</title>
+        <geoform>The data consist of a comma-delimited (*.csv) text file with depth data in three columns: East, North, and Depth, all in units of meters.  Projection and datum are UTM Zone 10 N and NAD83.</geoform>
+        <pubinfo>
+          <pubplace>Reston, VA</pubplace>
+          <publish>U.S. Geological Survey</publish>
+        </pubinfo>
+        <onlink>https://doi.org/10.5066/F7Q52NZ1</onlink>
+      </citeinfo>
+    </citation>
+    <descript>
+      <abstract>Field measurements of water depth were acquired from a reach of the upper Sacramento River in northern California, September 12-14, 2017, to support research on salmon habitat and geomorphic change along the Sacramento River and, more broadly, remote sensing of rivers.  The depth measurements included in this data release were obtained by wading the shallow channel margins with RTK GPS receivers and measuring water surface elevations along the water's edge and bed elevations within the channel; depths were calculated by subtracting bed elevations from the nearest water surface elevation.   For the deeper areas representing most of the channel, depths were recorded along a series of cross-sections by a SonTek RiverSurveyor S5 acoustic Doppler current profiler (ADCP) and an Ohmex SonarMite echo sounder, both deployed from a jet boat.  The spatial location of each measurement was obtained via GPS receivers: Trimble R8 and R10 RTK rovers for the wading and echo sounder measurements and a differential GPS included as part of the RiverSurveyor S5 ADCP instrument package.  The map projection and datum for these data are UTM Zone 10 N and NAD83, respectively.  The wading-, echo sounder-, and ADCP-based depth measurements were cross-calibrated to one another and are combined for the purposes of this data release, which consists of a comma-delimited (*.csv) text file with three columns: East_m, North_m, and Depth_m; the units of the spatial coordinates and the depths are meters.  This ground-based data set played a critical role in developing improved methods for mapping river bathymetry from remotely sensed data.</abstract>
+      <purpose>Field measurements of water depth were acquired from a reach of the upper Sacramento River in northern California, September 11-14, 2017, to support research on salmon habitat and geomorphic change along the Sacramento River and, more broadly, remote sensing of rivers. This ground-based data set played a critical role in developing improved methods for mapping river bathymetry from remotely sensed data.</purpose>
+    </descript>
+    <timeperd>
+      <timeinfo>
+        <rngdates>
+          <begdate>20170911</begdate>
+          <enddate>20170914</enddate>
+        </rngdates>
+      </timeinfo>
+      <current>ground condition</current>
+    </timeperd>
+    <status>
+      <progress>Complete</progress>
+      <update>None planned</update>
+    </status>
+    <spdom>
+      <bounding>
+        <westbc>-122.22839354996</westbc>
+        <eastbc>-122.11853026872</eastbc>
+        <northbc>40.417678334553</northbc>
+        <southbc>40.279525667514</southbc>
+      </bounding>
+    </spdom>
+    <keywords>
+      <theme>
+        <themekt>USGS Thesaurus</themekt>
+        <themekey>depth</themekey>
+        <themekey>bathymetry</themekey>
+        <themekey>rivers</themekey>
+        <themekey>acoustic Doppler current profiler</themekey>
+        <themekey>echo sounder</themekey>
+      </theme>
+      <theme>
+        <themekt>USGS Metadata Identifier</themekt>
+        <themekey>USGS:5aba8249e4b081f61abb4c75</themekey>
+      </theme>
+      <place>
+        <placekt>Geographic Names Information System (GNIS)</placekt>
+        <placekey>Sacramento River</placekey>
+        <placekey>Cottonwood Creek</placekey>
+        <placekey>California</placekey>
+      </place>
+    </keywords>
+    <accconst>none</accconst>
+    <useconst>none</useconst>
+    <ptcontac>
+      <cntinfo>
+        <cntperp>
+          <cntper>Carl J Legleiter</cntper>
+          <cntorg>U.S. Geological Survey Geomorphology and Sediment Transport Laboratory</cntorg>
+        </cntperp>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>4620 Technology Dr., Suite #400</address>
+          <city>Golden</city>
+          <state>CO</state>
+          <postal>80403</postal>
+          <country>US</country>
+        </cntaddr>
+        <cntvoice>303-271-3651</cntvoice>
+        <cntemail>cjl@usgs.gov</cntemail>
+      </cntinfo>
+    </ptcontac>
+    <datacred>This study was completed in collaboration with the National Oceanographic and Atmospheric Administration (NOAA) Southwest Fisheries Science Center.</datacred>
+  </idinfo>
+  <dataqual>
+    <attracc>
+      <attraccr>No formal attribute accuracy tests were conducted</attraccr>
+    </attracc>
+    <logic>No formal logical accuracy tests were conducted</logic>
+    <complete>Data set is considered complete for the information presented, as described in the abstract. Users are advised to read the rest of the metadata record carefully for additional details.</complete>
+    <posacc>
+      <horizpa>
+        <horizpar>No formal positional accuracy tests were conducted</horizpar>
+      </horizpa>
+      <vertacc>
+        <vertaccr>No formal positional accuracy tests were conducted</vertaccr>
+      </vertacc>
+    </posacc>
+    <lineage>
+      <procstep>
+        <procdesc>The depth measurements included in this data release were obtained by wading the shallow channel margins with RTK GPS receivers and measuring water surface elevations along the water's edge and bed elevations within the channel; depths were calculated by subtracting bed elevations from the nearest water surface elevation.   For the deeper areas representing most of the channel, depths were recorded along a series of cross-sections by a SonTek RiverSurveyor S5 acoustic Doppler current profiler (ADCP) and an Ohmex SonarMite echo sounder, both deployed from a jet boat.   
+
+The spatial location of each measurement was obtained via GPS receivers: Trimble R8 and R10 RTK rovers for the wading and echo sounder measurements and a differential GPS included as part of the RiverSurveyor S5 ADCP instrument package.  The map projection and datum for these data are UTM Zone 10 N and NAD83, respectively.  The wading-, echo sounder-, and ADCP-based depth measurements were cross-calibrated to one another and are combined for the purposes of this data release, which consists of a comma-delimited (*.csv) text file with three columns: East_m, North_m, and Depth_m; the units of the spatial coordinates and the depths are meters.</procdesc>
+        <procdate>20180327</procdate>
+        <proccont>
+          <cntinfo>
+            <cntperp>
+              <cntper>Carl J Legleiter</cntper>
+              <cntorg>USGS Geomorphology and Sediment Transport Laboratory</cntorg>
+            </cntperp>
+            <cntpos>Research Hydrologist</cntpos>
+            <cntaddr>
+              <addrtype>mailing and physical</addrtype>
+              <address>4620 Technology Dr., Suite #400</address>
+              <city>Golden</city>
+              <state>CO</state>
+              <postal>80403</postal>
+              <country>US</country>
+            </cntaddr>
+            <cntvoice>303-271-3651</cntvoice>
+            <cntemail>cjl@usgs.gov</cntemail>
+          </cntinfo>
+        </proccont>
+      </procstep>
+    </lineage>
+  </dataqual>
+  <spdoinfo>
+    <indspref>Sacramento River, Cottonwood Creek, California</indspref>
+    <direct>Point</direct>
+  </spdoinfo>
+  <spref>
+    <horizsys>
+      <planar>
+        <mapproj>
+          <mapprojn>Transverse Mercator</mapprojn>
+          <transmer>
+            <sfctrmer>0.9996</sfctrmer>
+            <longcm>-123.0</longcm>
+            <latprjo>0.0</latprjo>
+            <feast>500000.0</feast>
+            <fnorth>0.0</fnorth>
+          </transmer>
+        </mapproj>
+        <planci>
+          <plance>coordinate pair</plance>
+          <coordrep>
+            <absres>0.001</absres>
+            <ordres>0.001</ordres>
+          </coordrep>
+          <plandu>METERS</plandu>
+        </planci>
+      </planar>
+      <geodetic>
+        <horizdn>NAD83</horizdn>
+        <ellips>GRS_1980</ellips>
+        <semiaxis>6378137.0</semiaxis>
+        <denflat>298.257222101</denflat>
+      </geodetic>
+    </horizsys>
+  </spref>
+  <eainfo>
+    <detailed>
+      <enttyp>
+        <enttypl>SacDepthData</enttypl>
+        <enttypd>Text file with depth data in three columns: East_m, North_m, Depth_m; all in units of m. Projection and datum are UTM Zone 10N and NAD83.</enttypd>
+        <enttypds>Producer defined</enttypds>
+      </enttyp>
+      <attr>
+        <attrlabl>East_m</attrlabl>
+        <attrdef>Easting (X) spatial coordinate of the depth measurement in UTM Zone 10N, NAD83</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>567850</rdommin>
+            <rdommax>568250</rdommax>
+            <attrunit>meters</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>North_m</attrlabl>
+        <attrdef>Northing (Y) spatial coordinate of the depth measurement in UTM Zone 10N, NAD83</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>4469500</rdommin>
+            <rdommax>4470800</rdommax>
+            <attrunit>meters</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>Depth_m</attrlabl>
+        <attrdef>Measured water depth in meters</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>max</rdommin>
+            <rdommax>4.2</rdommax>
+            <attrunit>meters</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+    </detailed>
+  </eainfo>
+  <distinfo>
+    <distrib>
+      <cntinfo>
+        <cntorgp>
+          <cntorg>U.S. Geological Survey - ScienceBase</cntorg>
+        </cntorgp>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>Denver Federal Center, Building 810, Mail Stop 302</address>
+          <city>Denver</city>
+          <state>CO</state>
+          <postal>80225</postal>
+          <country>USA</country>
+        </cntaddr>
+        <cntvoice>1-888-275-8747</cntvoice>
+        <cntemail>sciencebase@usgs.gov</cntemail>
+      </cntinfo>
+    </distrib>
+    <distliab>Unless otherwise stated, all data, metadata and related materials are considered to satisfy the quality standards relative to the purpose for which the data were collected. Although these data and associated metadata have been reviewed for accuracy and completeness and approved for release by the U.S. Geological Survey (USGS), no warranty expressed or implied is made regarding the display or utility of the data on any other system or for general or scientific purposes, nor shall the act of distribution constitute any such warranty. Any use of trade, firm, or product names is for descriptive purposes only and does not imply endorsement by the U.S. Government. The data you have secured from the U.S. Geological Survey (USGS) database identified as "Depth measurements from the upper Sacramento River in northern California, September 11-14, 2017" have not received USGS approval and as such are provisional and subject to revision. The data are released on the condition that neither the USGS nor the U.S. Government shall be held liable for any damages resulting from its authorized or unauthorized use. Although these data have been processed successfully on a computer system at the U.S. Geological Survey (USGS), no warranty expressed or implied is made regarding the display or utility of the data on any other system or for general or scientific purposes, nor shall the act of distribution constitute any such warranty. The USGS or the U.S. Government shall not be held liable for improper or incorrect use of the data described and/or contained herein.</distliab>
+    <techpreq>The data are provided as a *.csv comma-separated text file that can be opened with a text editor such as Notepad, a spreadsheet program such as Excel, or a numerical computing software package such as MATLAB.</techpreq>
+  </distinfo>
+  <metainfo>
+    <metd>20200831</metd>
+    <metc>
+      <cntinfo>
+        <cntperp>
+          <cntper>Carl J Legleiter</cntper>
+          <cntorg>U.S. Geological Survey Geomorphology and Sediment Transport Laboratory</cntorg>
+        </cntperp>
+        <cntpos>Research Hydrologist</cntpos>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>4620 Technology Dr., Suite #400</address>
+          <city>Golden</city>
+          <state>CO</state>
+          <postal>80403</postal>
+          <country>US</country>
+        </cntaddr>
+        <cntvoice>303-271-3651</cntvoice>
+        <cntemail>cjl@usgs.gov</cntemail>
+      </cntinfo>
+    </metc>
+    <metstdn>Content Standard for Digital Geospatial Metadata</metstdn>
+    <metstdv>FGDC-STD-001-1998</metstdv>
+  </metainfo>
+</metadata>

@@ -1,0 +1,240 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<metadata>
+  <idinfo>
+    <citation>
+      <citeinfo>
+        <origin>Jackson, P. Ryan</origin>
+        <origin>Vonins, Branden L.</origin>
+        <pubdate>20220107</pubdate>
+        <title>Bathymetric data for the Maumee River between Defiance and Toledo, Ohio, 2019</title>
+        <geoform>Comma-separated values (CSV) file</geoform>
+        <pubinfo>
+          <pubplace>Reston, VA</pubplace>
+          <publish>U.S. Geological Survey</publish>
+        </pubinfo>
+        <onlink>https://doi.org/10.5066/P9KAKMAB</onlink>
+      </citeinfo>
+    </citation>
+    <descript>
+      <abstract>As part of the Great Lakes Restoration Initiative (GLRI) project template 774-18 entitled “Development of monitoring and response methodologies, and implementation of an Adaptive Management Framework to work towards Eradication of Grass Carp in Lake Erie” an integrated bathymetric/hydrodynamic/water-quality survey of the Maumee River (Ohio) was completed by the U.S. Geological Survey (USGS) in the summer of 2019. These data were collected to inform the development of a one-dimensional hydraulic model and associated Fluvial Egg Drift Simulator (FluEgg) model of the Maumee River downstream from Defiance, Ohio. The data contained in this data release were collected by the USGS Ohio-Kentucky-Indiana Water Science Center to inform the development of these models by the USGS Central Midwest Water Science Center. 
+The survey was completed over two periods of time: June 24–28, 2019, and July 29 to August 1, 2019. The first survey period concentrated on the reach between Waterville, Ohio, and Lake Erie, while the second period concentrated on the reach between Defiance, Ohio, and Grand Rapids, Ohio. Survey data include bathymetry (riverbed elevations), three-dimensional water velocity, discharge, and basic water-quality parameters. However, this data release is limited to only the bathymetry data (riverbed elevations) from the survey. A total of 251 cross sections were surveyed (141 upstream from and 110 downstream from Grand Rapids Dam, respectively) and data were also collected along streamwise transits between sections. Due to rapids, high-water, access, and safety concerns, no data were collected in the 23.9-kilometer reach downstream from the dam at Grand Rapids, Ohio. The upstream-most cross section is 280 meters downstream from the low-head dam approximately 6.6 kilometers downstream from Defiance, Ohio. The downstream-most cross section is located 290 meters downstream from the U.S. Coast Guard Station at Toledo, Ohio (3900 N Summit St, Toledo, OH 43611). All data were collected by a manned survey vessel with a two-person survey crew of trained hydrographers. All data were georeferenced using a Trimble R10 Global Navigation Satellite System (GNSS) receiver mounted on the survey vessel and connected to the Ohio Department of Transportation (ODOT) real-time virtual reference station (VRS) network. Depths were measured using the 600 kHz vertical beam from a 1200 kHz Teledyne RD Instruments RiverPro acoustic Doppler current profiler (ADCP) deployed on a fixed mount from the survey vessel. The GNSS receiver was mounted directly above the ADCP and the offset between the GNSS antenna and the face of the vertical beam transducer was measured in the field and accounted for in post-processing. The sampling frequency varied slightly with the dynamic configuration of the ADCP but was generally between 1 to 2 Hertz.</abstract>
+      <purpose>These data were collected to develop a one-dimensional hydraulic model and associated Fluvial Egg Drift Simulator (FluEgg) model of the Maumee River downstream from Defiance, Ohio, to the river mouth at Lake Erie at Toledo, Ohio.</purpose>
+    </descript>
+    <timeperd>
+      <timeinfo>
+        <rngdates>
+          <begdate>20190624</begdate>
+          <enddate>20190801</enddate>
+        </rngdates>
+      </timeinfo>
+      <current>ground condition</current>
+    </timeperd>
+    <status>
+      <progress>Complete</progress>
+      <update>None planned</update>
+    </status>
+    <spdom>
+      <bounding>
+        <westbc>-84.277883</westbc>
+        <eastbc>-83.46574</eastbc>
+        <northbc>41.695986</northbc>
+        <southbc>41.289137</southbc>
+      </bounding>
+    </spdom>
+    <keywords>
+      <theme>
+        <themekt>USGS Thesaurus</themekt>
+        <themekey>bathymetry</themekey>
+        <themekey>surface water (non-marine)</themekey>
+        <themekey>river reaches</themekey>
+      </theme>
+      <theme>
+        <themekt>USGS Metadata Identifier</themekt>
+        <themekey>USGS:61bcbe9cd34ee9cd54ed2330</themekey>
+      </theme>
+      <place>
+        <placekt>Geographic Names Information System (GNIS)</placekt>
+        <placekey>United States</placekey>
+        <placekey>Ohio</placekey>
+        <placekey>Maumee River</placekey>
+        <placekey>Lucas County</placekey>
+        <placekey>Defiance County</placekey>
+        <placekey>Wood County</placekey>
+        <placekey>Henry County</placekey>
+      </place>
+    </keywords>
+    <accconst>none</accconst>
+    <useconst>These bathymetric data are not for use in navigation.</useconst>
+    <ptcontac>
+      <cntinfo>
+        <cntperp>
+          <cntper>Patrick R Jackson</cntper>
+          <cntorg>SOUTHEAST REGION: CENTRAL MIDWEST WSC URBANA</cntorg>
+        </cntperp>
+        <cntpos>Hydrologist</cntpos>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>405 N. Goodwin Avenue</address>
+          <city>Urbana</city>
+          <state>IL</state>
+          <postal>61801</postal>
+          <country>US</country>
+        </cntaddr>
+        <cntvoice>217-328-9719</cntvoice>
+        <cntemail>pjackson@usgs.gov</cntemail>
+      </cntinfo>
+    </ptcontac>
+    <datacred>Great Lakes Restoration Initiative</datacred>
+  </idinfo>
+  <dataqual>
+    <attracc>
+      <attraccr>No formal attribute accuracy tests were conducted</attraccr>
+    </attracc>
+    <logic>Values fall within expected ranges and data were checked for duplication or omission.</logic>
+    <complete>Dataset is considered complete for the information presented, as described in the abstract. Users are advised to read the rest of the metadata record carefully for additional details.</complete>
+    <posacc>
+      <horizpa>
+        <horizpar>No formal positional accuracy tests were conducted. GPS data were filtered to remove data that did not have a GPS quality of 4 (RTK) and Hdop of 5 or less.</horizpar>
+      </horizpa>
+      <vertacc>
+        <vertaccr>No formal positional accuracy tests were conducted. GPS data were filtered to remove data that did not have a GPS quality of 4 (RTK) and Hdop of 5 or less.</vertaccr>
+      </vertacc>
+    </posacc>
+    <lineage>
+      <procstep>
+        <procdesc>DATA COLLECTION
+In the summer of 2019, the U.S. Geological Survey completed an integrated bathymetric/hydrodynamic/water-quality survey of the Maumee River between Defiance, Ohio, and the river mouth at Lake Erie at Toledo, Ohio. These data were collected by the USGS Ohio-Kentucky-Indiana Water Science Center and processed by the USGS Central Midwest Water Science Center. The survey was completed over two periods of time: June 24–28, 2019 and July 29 to August 1, 2019. The first survey period concentrated on the reach between Waterville, Ohio, and Lake Erie, while the second period concentrated on the reach between Defiance, Ohio, and Grand Rapids, Ohio. Survey data include bathymetry (riverbed elevation), three-dimensional water velocity, discharge, and basic water-quality parameters. A total of 251 cross sections were surveyed (141 upstream from and 110 downstream from Grand Rapids Dam, respectively) and data were also collected along streamwise transits between sections. Due to rapids, high-water, access, and safety concerns, no data were collected in the 23.9-kilometer reach downstream from the dam at Grand Rapids, Ohio. The upstream-most cross section is 280 meters downstream from the low-head dam approximately 6.6 kilometers downstream from Defiance, Ohio.  The downstream-most cross section is located 290 meters downstream from the U.S. Coast Guard Station at Toledo, Ohio (3900 N Summit St, Toledo, OH 43611). 
+
+These bathymetric data were collected using the 600 kHz vertical beam from a 1200 kHz Teledyne RD Instruments RiverPro acoustic Doppler current profiler (ADCP) deployed on a fixed mount from the survey vessel. The data were georeferenced using a Trimble R10 Global Navigation Satellite System (GNSS) receiver mounted on the survey vessel and connected to the Ohio Department of Transportation (ODOT) real-time virtual reference station (VRS) network. The GNSS receiver was mounted directly above the ADCP and the offset between the GNSS antenna and the face of the vertical beam transducer was measured in the field and accounted for in post-processing. The sampling frequency varied slightly with the dynamic configuration of the ADCP but was generally between 1 to 2 Hz. All data were collected by a manned survey vessel with a two-person survey crew of trained hydrographers.</procdesc>
+        <procdate>20190801</procdate>
+      </procstep>
+      <procstep>
+        <procdesc>DATA PROCESSING
+All ADCP data were reviewed in Teledyne RD Instruments’ WinRiver II v2.20 data collection software before being exported as text files (*_ASC.txt and  *_GPS.txt) and imported into custom Matlab (R2020a) scripts for post processing. For every ensemble (ADCP sounding), positional data contained in the GPS.txt file were extracted from the NMEA 0182 GGA string closest in time to the ensemble. Elevation of the riverbed (in meters; NAVD88) was computed for every ensemble using the elevation (in meters; MSL) and geoidal separation (in meters; WGS84) data contained the GGA string, GEOID18 geoid heights generated using National Geodetic Survey online tool located at https://www.ngs.noaa.gov/GEOID/GEOID18/computation.html, the instrument draft (in meters), and the antenna offset (in meters). The bathymetry data were filtered to include only data with a real-time kinematic (RTK) fix, a horizontal dilution of precision (Hdop) less than or equal to 5, and a valid depth sounding for the final dataset. Some manual screening of the data was necessary to remove spikes. The final dataset was written to a comma-separated values (CSV) file with three columns of data with headers: Latitude_WGS84, Longitude_WGS84, and Elev_m_NAVD88. Both latitude and longitude are presented in decimal degrees and referenced to the World Geodetic System 1984 (WGS84) while riverbed elevations are given in meters above the North American Vertical Datum of 1988 (NAVD88).</procdesc>
+        <procdate>20191018</procdate>
+      </procstep>
+      <procstep>
+        <procdesc>REVIEW
+The bathymetric data and associated metadata were reviewed for publication by a U.S. Geological Survey (USGS) hydrologist and required USGS approving officials.</procdesc>
+        <procdate>2021</procdate>
+      </procstep>
+    </lineage>
+  </dataqual>
+  <spdoinfo>
+    <indspref>Geographic Names Information System (GNIS) placenames</indspref>
+    <direct>Point</direct>
+  </spdoinfo>
+  <spref>
+    <horizsys>
+      <geograph>
+        <latres>1.0E-6</latres>
+        <longres>1.0E-6</longres>
+        <geogunit>Decimal degrees</geogunit>
+      </geograph>
+      <geodetic>
+        <horizdn>World Geodetic System 1984 (WGS84)</horizdn>
+        <ellips>WGS 84</ellips>
+        <semiaxis>6378137.0</semiaxis>
+        <denflat>298.257223563</denflat>
+      </geodetic>
+    </horizsys>
+    <vertdef>
+      <altsys>
+        <altdatum>North American Vertical Datum of 1988</altdatum>
+        <altres>0.01</altres>
+        <altunits>meters</altunits>
+        <altenc>Explicit elevation coordinate included with horizontal coordinates</altenc>
+      </altsys>
+    </vertdef>
+  </spref>
+  <eainfo>
+    <detailed>
+      <enttyp>
+        <enttypl>Maumee_Bathy_XYZ_2019.csv</enttypl>
+        <enttypd>CSV file containing elevations of the channel bed of the Maumee River between Defiance and Toledo, Ohio. No data were collected between Grand Rapids Dam and Waterville, OH, due to access and safety issues.</enttypd>
+        <enttypds>Producer defined</enttypds>
+      </enttyp>
+      <attr>
+        <attrlabl>Latitude_WGS84</attrlabl>
+        <attrdef>Latitude (WGS 84)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>41.289361</rdommin>
+            <rdommax>41.695862</rdommax>
+            <attrunit>decimal degrees</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>Longitude_WGS84</attrlabl>
+        <attrdef>Longitude (WGS 84)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>-84.277868</rdommin>
+            <rdommax>-83.465895</rdommax>
+            <attrunit>decimal degrees</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+      <attr>
+        <attrlabl>Elev_m_NAVD88</attrlabl>
+        <attrdef>Elevation of the riverbed (NAVD88)</attrdef>
+        <attrdefs>Producer defined</attrdefs>
+        <attrdomv>
+          <rdom>
+            <rdommin>163.60</rdommin>
+            <rdommax>198.34</rdommax>
+            <attrunit>meters</attrunit>
+          </rdom>
+        </attrdomv>
+      </attr>
+    </detailed>
+  </eainfo>
+  <distinfo>
+    <distrib>
+      <cntinfo>
+        <cntperp>
+          <cntper>GS ScienceBase</cntper>
+          <cntorg>U.S. Geological Survey</cntorg>
+        </cntperp>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>Denver Federal Center, Building 810, Mail Stop 302</address>
+          <city>Denver</city>
+          <state>CO</state>
+          <postal>80225</postal>
+          <country>United States</country>
+        </cntaddr>
+        <cntvoice>1-888-275-8747</cntvoice>
+        <cntemail>sciencebase@usgs.gov</cntemail>
+      </cntinfo>
+    </distrib>
+    <distliab>Unless otherwise stated, all data, metadata and related materials are considered to satisfy the quality standards relative to the purpose for which the data were collected. Although these data and associated metadata have been reviewed for accuracy and completeness and approved for release by the U.S. Geological Survey (USGS), no warranty expressed or implied is made regarding the display or utility of the data on any other system or for general or scientific purposes, nor shall the act of distribution constitute any such warranty. Any use of trade, firm, or product names is for descriptive purposes only and does not imply endorsement by the U.S. Government.</distliab>
+  </distinfo>
+  <metainfo>
+    <metd>20220107</metd>
+    <metc>
+      <cntinfo>
+        <cntperp>
+          <cntper>Patrick R Jackson</cntper>
+          <cntorg>SOUTHEAST REGION: CENTRAL MIDWEST WSC URBANA</cntorg>
+        </cntperp>
+        <cntpos>Hydrologist</cntpos>
+        <cntaddr>
+          <addrtype>mailing and physical</addrtype>
+          <address>405 N. Goodwin Avenue</address>
+          <city>Urbana</city>
+          <state>IL</state>
+          <postal>61801</postal>
+          <country>US</country>
+        </cntaddr>
+        <cntvoice>217-328-9719</cntvoice>
+        <cntemail>pjackson@usgs.gov</cntemail>
+      </cntinfo>
+    </metc>
+    <metstdn>Content Standard for Digital Geospatial Metadata</metstdn>
+    <metstdv>FGDC-STD-001-1998</metstdv>
+  </metainfo>
+</metadata>
