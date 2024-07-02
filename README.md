@@ -48,6 +48,10 @@ Download QGIS [here](https://www.qgis.org/en/site/forusers/download.html)
 
 ## Installation
 
+### With the plugin manager
+
+Install BathyFlowDEM from QGIS via the plugin manager at **Plugin > Install and manage plugins...**
+
 ### Locally
 
 Download the master branch of this repository and move it to your QGIS active user's profile folder: 
